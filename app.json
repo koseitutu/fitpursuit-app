@@ -14,6 +14,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.koseitutu.fitpursuit",
       "adaptiveIcon": {
         "backgroundColor": "#14171c"
       }
