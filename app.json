@@ -4,27 +4,19 @@
     "slug": "fitpursuit-xfwsoenm9avmvn0aexv4p",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#14171c"
-    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
-        "package": "com.koseitutu.fitpursuit",
+      "package": "com.koseitutu.fitpursuit",
       "adaptiveIcon": {
         "backgroundColor": "#14171c"
       }
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "extra": {
       "eas": {
-        "projectId": "bd60aed2-572e-4a8d-aeaa-638a4811f2db"
+        "projectId": "fitpursuit-xfwsoenm9avmvn0aexv4p"
       }
     }
   }
