@@ -17,14 +17,15 @@ import { Scale, TrendingUp, TrendingDown, Trash2, Edit2, Plus, Calendar, X } fro
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
 
-export default function Analytics() {
+// We accept the global app theme directly as a prop
+export default function Analytics({ theme }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [history, setHistory] = useState([]);
   
   // Form states for adding new log
   const [inputWeight, setInputWeight] = useState('');
-  const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); // Default YYYY-MM-DD
+  const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
   
   // Edit Modal States
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -43,16 +44,13 @@ export default function Analytics() {
     try {
       setLoading(true);
       
-      // Load Profile (for starting weight & unit preference)
       const profileJson = await AsyncStorage.getItem(PROFILE_KEY);
       const parsedProfile = profileJson ? JSON.parse(profileJson) : null;
       setProfile(parsedProfile);
 
-      // Load Weight History Logs
       const historyJson = await AsyncStorage.getItem(HISTORY_KEY);
       const parsedHistory = historyJson ? JSON.parse(historyJson) : [];
       
-      // Sort history chronologically (newest first)
       const sortedHistory = parsedHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
       setHistory(sortedHistory);
     } catch (e) {
@@ -94,7 +92,7 @@ export default function Analytics() {
     }
   };
 
-  // 📝 UPDATE: Edit Existing Entry (Item 7)
+  // 📝 UPDATE: Edit Existing Entry
   const openEditModal = (item) => {
     setEditingItem(item);
     setEditWeight(item.weight.toString());
@@ -126,7 +124,7 @@ export default function Analytics() {
     }
   };
 
-  // ❌ DELETE: Remove Entry (Item 7)
+  // ❌ DELETE: Remove Entry
   const handleDeleteLog = async (id) => {
     try {
       const updatedHistory = history.filter((item) => item.id !== id);
@@ -138,7 +136,6 @@ export default function Analytics() {
     }
   };
 
-  // Mathematical Analytics Conversions & Computations
   const unit = profile?.weightUnit || 'lbs';
   const startingWeight = profile?.weight ? parseFloat(profile.weight) : null;
   const currentWeight = history.length > 0 ? history[0].weight : startingWeight;
@@ -146,7 +143,7 @@ export default function Analytics() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#dd6b20" />
       </View>
     );
@@ -155,41 +152,45 @@ export default function Analytics() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
     >
       {/* Header Info */}
       <View style={styles.header}>
-        <Text style={styles.title}>Weight Logs</Text>
-        <Text style={styles.subtitle}>Track your body transformation stats</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Weight Logs</Text>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>Track your body transformation stats</Text>
       </View>
 
       {/* Progress Dashboard Panel */}
       <View style={styles.dashboardContainer}>
         <View style={styles.cardRow}>
           {/* Starting Weight */}
-          <View style={styles.miniCard}>
-            <Text style={styles.miniCardLabel}>Starting</Text>
-            <Text style={styles.miniCardValue}>
+          <View style={[styles.miniCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Starting</Text>
+            <Text style={[styles.miniCardValue, { color: theme.text }]}>
               {startingWeight ? `${startingWeight} ${unit}` : 'Not set'}
             </Text>
           </View>
 
           {/* Current Weight */}
-          <View style={styles.miniCard}>
-            <Text style={styles.miniCardLabel}>Current</Text>
-            <Text style={styles.miniCardValue}>
+          <View style={[styles.miniCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Current</Text>
+            <Text style={[styles.miniCardValue, { color: theme.text }]}>
               {currentWeight ? `${currentWeight} ${unit}` : 'Not set'}
             </Text>
           </View>
 
           {/* Progress Net change */}
-          <View style={[styles.miniCard, totalChange !== 0 && (totalChange < 0 ? styles.successCardBorder : styles.neutralCardBorder)]}>
-            <Text style={styles.miniCardLabel}>Progress</Text>
+          <View style={[
+            styles.miniCard, 
+            { backgroundColor: theme.card, borderColor: theme.border },
+            totalChange !== 0 && (totalChange < 0 ? styles.successCardBorder : styles.neutralCardBorder)
+          ]}>
+            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Progress</Text>
             <View style={styles.trendRow}>
               {totalChange !== 0 && (
                 totalChange < 0 ? <TrendingDown size={14} color="#48bb78" /> : <TrendingUp size={14} color="#e53e3e" />
               )}
-              <Text style={[styles.miniCardValue, totalChange < 0 ? styles.greenText : totalChange > 0 ? styles.redText : null]}>
+              <Text style={[styles.miniCardValue, totalChange < 0 ? styles.greenText : totalChange > 0 ? styles.redText : { color: theme.text }]}>
                 {startingWeight && currentWeight
                   ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} ${unit}`
                   : '0.0'}
@@ -199,29 +200,29 @@ export default function Analytics() {
         </View>
       </View>
 
-      {/* Trigger Form Box: Log Today's Weight */}
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Record New Weight Entry</Text>
+      {/* Trigger Form Box: Log New Weight */}
+      <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <Text style={[styles.formTitle, { color: theme.text }]}>Record New Weight Entry</Text>
         
         <View style={styles.inputRow}>
-          <View style={styles.inputContainer}>
-            <Scale size={14} color="#718096" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
+            <Scale size={14} color={theme.textMuted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.text }]}
               placeholder={`Weight (${unit})`}
-              placeholderTextColor="#4a5568"
+              placeholderTextColor={theme.textMuted}
               keyboardType="decimal-pad"
               value={inputWeight}
               onChangeText={setInputWeight}
             />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Calendar size={14} color="#718096" style={styles.inputIcon} />
+          <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
+            <Calendar size={14} color={theme.textMuted} style={styles.inputIcon} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: theme.text }]}
               placeholder="YYYY-MM-DD"
-              placeholderTextColor="#4a5568"
+              placeholderTextColor={theme.textMuted}
               value={inputDate}
               onChangeText={setInputDate}
             />
@@ -240,13 +241,13 @@ export default function Analytics() {
       </View>
 
       {/* Logs Timeline List */}
-      <Text style={styles.sectionHeader}>Log History</Text>
+      <Text style={[styles.sectionHeader, { color: theme.text }]}>Log History</Text>
       
       {history.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Scale size={32} color="#4a5568" />
-          <Text style={styles.emptyText}>No logs recorded yet.</Text>
-          <Text style={styles.emptySubText}>Enter your weight above to compile records.</Text>
+          <Scale size={32} color={theme.textMuted} />
+          <Text style={[styles.emptyText, { color: theme.textMuted }]}>No logs recorded yet.</Text>
+          <Text style={[styles.emptySubText, { color: theme.textMuted }]}>Enter your weight above to compile records.</Text>
         </View>
       ) : (
         <FlatList
@@ -254,18 +255,18 @@ export default function Analytics() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <View style={styles.logRow}>
+            <View style={[styles.logRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
               <View style={styles.logInfo}>
                 <Calendar size={14} color="#dd6b20" style={styles.logIcon} />
-                <Text style={styles.logDate}>{item.date}</Text>
+                <Text style={[styles.logDate, { color: theme.text }]}>{item.date}</Text>
               </View>
-              <Text style={styles.logWeight}>{item.weight} {unit}</Text>
+              <Text style={[styles.logWeight, { color: theme.text }]}>{item.weight} {unit}</Text>
               
               <View style={styles.actionButtons}>
-                <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionBtn}>
-                  <Edit2 size={14} color="#a0aec0" />
+                <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.actionBtn, { backgroundColor: theme.background }]}>
+                  <Edit2 size={14} color={theme.textMuted} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={styles.actionBtn}>
+                <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={[styles.actionBtn, { backgroundColor: theme.background }]}>
                   <Trash2 size={14} color="#fc8181" />
                 </TouchableOpacity>
               </View>
@@ -277,26 +278,26 @@ export default function Analytics() {
       {/* Edit Overlay Modal */}
       <Modal visible={editModalVisible} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Log Entry</Text>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Log Entry</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <X size={20} color="#a0aec0" />
-              </View>
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.modalForm}>
-              <Text style={styles.modalLabel}>Weight ({unit})</Text>
+              <Text style={[styles.modalLabel, { color: theme.textMuted }]}>Weight ({unit})</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
                 keyboardType="decimal-pad"
                 value={editWeight}
                 onChangeText={setEditWeight}
               />
 
-              <Text style={styles.modalLabel}>Date</Text>
+              <Text style={[styles.modalLabel, { color: theme.textMuted }]}>Date</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
                 value={editDate}
                 onChangeText={setEditDate}
               />
@@ -315,11 +316,9 @@ export default function Analytics() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#14171c',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#14171c',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -331,11 +330,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
   },
   subtitle: {
     fontSize: 14,
-    color: '#718096',
     marginTop: 4,
   },
   dashboardContainer: {
@@ -349,22 +346,18 @@ const styles = StyleSheet.create({
   },
   miniCard: {
     flex: 1,
-    backgroundColor: '#1e232b',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
   miniCardLabel: {
     fontSize: 11,
-    color: '#718096',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   miniCardValue: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#ffffff',
     marginTop: 6,
   },
   trendRow: {
@@ -373,10 +366,10 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   successCardBorder: {
-    borderColor: 'rgba(72, 187, 120, 0.2)',
+    borderColor: 'rgba(72, 187, 120, 0.4)',
   },
   neutralCardBorder: {
-    borderColor: 'rgba(255, 255, 255, 0.03)',
+    borderColor: 'transparent',
   },
   greenText: {
     color: '#48bb78',
@@ -385,18 +378,15 @@ const styles = StyleSheet.create({
     color: '#f56565',
   },
   formCard: {
-    backgroundColor: '#1e232b',
     marginHorizontal: 24,
     padding: 18,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
     marginBottom: 20,
   },
   formTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 12,
   },
   inputRow: {
@@ -408,9 +398,7 @@ const styles = StyleSheet.create({
     flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 10,
     paddingHorizontal: 10,
   },
@@ -420,7 +408,6 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 40,
-    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -441,7 +428,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#ffffff',
     paddingHorizontal: 24,
     marginBottom: 10,
   },
@@ -451,13 +437,11 @@ const styles = StyleSheet.create({
   },
   logRow: {
     flexDirection: 'row',
-    backgroundColor: '#1e232b',
     borderRadius: 14,
     padding: 14,
     alignItems: 'center',
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.02)',
   },
   logInfo: {
     flexDirection: 'row',
@@ -468,13 +452,11 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   logDate: {
-    color: '#e2e8f0',
     fontSize: 13,
     fontWeight: '600',
   },
   logWeight: {
     flex: 1.5,
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'right',
@@ -486,7 +468,6 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     padding: 6,
-    backgroundColor: '#14171c',
     borderRadius: 8,
   },
   emptyContainer: {
@@ -496,29 +477,25 @@ const styles = StyleSheet.create({
     paddingBottom: 60,
   },
   emptyText: {
-    color: '#a0aec0',
     fontSize: 14,
     fontWeight: '700',
     marginTop: 12,
   },
   emptySubText: {
-    color: '#718096',
     fontSize: 11,
     marginTop: 4,
     textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#1e232b',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#2d3748',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -529,7 +506,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#ffffff',
   },
   modalForm: {
     gap: 12,
@@ -537,15 +513,11 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#a0aec0',
   },
   modalInput: {
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 12,
     padding: 12,
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
