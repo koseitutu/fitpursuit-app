@@ -9,17 +9,21 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Scale, Ruler, Calendar, Check, Sliders } from 'lucide-react-native';
+import { User, Scale, Ruler, Calendar, Check, Sliders, Download, Upload } from 'lucide-react-native';
 
 const STORAGE_KEY = '@fitpursuit_profile';
+const BP_STORAGE_KEY = '@fitpursuit_bp_logs'; // Key matching your BloodPressure screen logs
+const isWeb = typeof document !== 'undefined';
 
 export default function SettingsScreen() {
   // Loading & State
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error' | null
+  const [csvStatus, setCsvStatus] = useState(null);    // CSV feedback message
 
   // Profile Form States
   const [name, setName] = useState('');
@@ -27,7 +31,7 @@ export default function SettingsScreen() {
   const [height, setHeight] = useState('');
   const [weight, setWeight] = useState('');
 
-  // Unit Preferences States (Item 3!)
+  // Unit Preferences States
   const [weightUnit, setWeightUnit] = useState('lbs'); // 'lbs' | 'kg'
   const [heightUnit, setHeightUnit] = useState('in');  // 'in' | 'cm'
 
@@ -58,7 +62,6 @@ export default function SettingsScreen() {
   const saveProfileData = async () => {
     setSaveStatus(null);
     try {
-      // Basic input validation
       if (!name.trim()) {
         setSaveStatus('error');
         return;
@@ -78,12 +81,141 @@ export default function SettingsScreen() {
       setSaveStatus('success');
       setIsEditing(false);
 
-      // Clear save message after 3 seconds
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (e) {
       console.error('Failed to save profile data.', e);
       setSaveStatus('error');
     }
+  };
+
+  // --- FEATURE 5: MANUAL JAVASCRIPT CSV EXPORT ENGINE ---
+  const handleExportCSV = async () => {
+    setCsvStatus(null);
+    try {
+      const storedData = await AsyncStorage.getItem(BP_STORAGE_KEY);
+      const records = storedData ? JSON.parse(storedData) : [];
+
+      if (records.length === 0) {
+        if (isWeb) {
+          setCsvStatus('No blood pressure records found to export.');
+        } else {
+          Alert.alert('No Data', 'No blood pressure records found to export.');
+        }
+        return;
+      }
+
+      // 1. Build the CSV Header row
+      let csvContent = 'id,systolic,diastolic,pulse,notes,date\n';
+
+      // 2. Map items out into clean text lines split by commas
+      records.forEach((item) => {
+        const row = [
+          item.id || '',
+          item.systolic || '',
+          item.diastolic || '',
+          item.pulse || '',
+          `"${(item.notes || '').replace(/"/g, '""')}"`, // Sanitizing standard quotes inside text fields
+          item.date || ''
+        ].join(',');
+        csvContent += row + '\n';
+      });
+
+      // 3. Platform Execution Layer
+      if (isWeb) {
+        const blob = new document.defaultView.Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = document.defaultView.URL.createObjectURL(blob);
+        const link = document.defaultView.document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'fitpursuit_bp_data.csv');
+        link.style.visibility = 'hidden';
+        document.defaultView.document.body.appendChild(link);
+        link.click();
+        document.defaultView.document.body.removeChild(link);
+        setCsvStatus('✓ Data exported successfully!');
+        setTimeout(() => setCsvStatus(null), 4000);
+      } else {
+        // Safe Native fallback display configuration
+        Alert.alert('Export Complete', 'Your backup string generated. In a live production store layout, this string streams to native device documents.');
+        console.log('FitPursuit CSV Output String Data:\n', csvContent);
+      }
+    } catch (error) {
+      console.error('CSV Export Error: ', error);
+      setCsvStatus('Export failed.');
+    }
+  };
+
+  // --- FEATURE 5: MANUAL JAVASCRIPT CSV IMPORT ENGINE ---
+  const handleWebCSVImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new document.defaultView.FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+        
+        if (lines.length <= 1) {
+          setCsvStatus('⚠️ Clean valid data columns not found in file.');
+          return;
+        }
+
+        // Parse headers to map out indexes
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const sysIdx = headers.indexOf('systolic');
+        const diaIdx = headers.indexOf('diastolic');
+        const pulseIdx = headers.indexOf('pulse');
+        const notesIdx = headers.indexOf('notes');
+        const dateIdx = headers.indexOf('date');
+
+        if (sysIdx === -1 || diaIdx === -1) {
+          setCsvStatus('⚠️ Invalid structure. Must include Systolic and Diastolic headers.');
+          return;
+        }
+
+        const importedRecords = [];
+        for (let i = 1; i < lines.length; i++) {
+          // Splitting columns while respecting simple quoted notes
+          const columns = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+          
+          if (columns.length >= 2) {
+            let cleanNotes = columns[notesIdx] || '';
+            if (cleanNotes.startsWith('"') && cleanNotes.endsWith('"')) {
+              cleanNotes = cleanNotes.substring(1, cleanNotes.length - 1).replace(/""/g, '"');
+            }
+
+            importedRecords.push({
+              id: columns[headers.indexOf('id')] || Date.now().toString() + '_' + i,
+              systolic: parseInt(columns[sysIdx], 10),
+              diastolic: parseInt(columns[diaIdx], 10),
+              pulse: pulseIdx !== -1 ? parseInt(columns[pulseIdx], 10) || null : null,
+              notes: cleanNotes,
+              date: dateIdx !== -1 ? columns[dateIdx] : new Date().toISOString(),
+            });
+          }
+        }
+
+        // Pull existing records to perform a clean non-destructive merge
+        const existingData = await AsyncStorage.getItem(BP_STORAGE_KEY);
+        const currentLogs = existingData ? JSON.parse(existingData) : [];
+        
+        // Merge records safely checking for duplicates by unique item ID
+        const mergedLogs = [...currentLogs];
+        importedRecords.forEach(newRec => {
+          if (!mergedLogs.some(existingRec => existingRec.id === newRec.id)) {
+            mergedLogs.push(newRec);
+          }
+        });
+
+        await AsyncStorage.setItem(BP_STORAGE_KEY, JSON.stringify(mergedLogs));
+        setCsvStatus('✓ Data imported and merged safely!');
+        setTimeout(() => setCsvStatus(null), 4000);
+      } catch (err) {
+        console.error(err);
+        setCsvStatus('⚠️ Error parsing file content data.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   if (loading) {
@@ -114,6 +246,11 @@ export default function SettingsScreen() {
             <Text style={styles.errorText}>⚠️ Please fill out at least your name.</Text>
           </View>
         )}
+        {csvStatus && (
+          <View style={[styles.statusBox, csvStatus.includes('✓') ? styles.successBox : styles.errorBox]}>
+            <Text style={csvStatus.includes('✓') ? styles.successText : styles.errorText}>{csvStatus}</Text>
+          </View>
+        )}
 
         {/* Card: Profile Information */}
         <View style={styles.card}>
@@ -132,7 +269,6 @@ export default function SettingsScreen() {
 
           {/* Form Fields */}
           <View style={styles.form}>
-            {/* Name Input */}
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <User size={16} color="#dd6b20" style={styles.inputIcon} />
@@ -148,7 +284,6 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* Age Input */}
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Calendar size={16} color="#dd6b20" style={styles.inputIcon} />
@@ -165,7 +300,6 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* Height Input */}
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Ruler size={16} color="#dd6b20" style={styles.inputIcon} />
@@ -182,7 +316,6 @@ export default function SettingsScreen() {
               />
             </View>
 
-            {/* Weight Input */}
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Scale size={16} color="#dd6b20" style={styles.inputIcon} />
@@ -201,7 +334,46 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Card: Units Preferences (Item 3 Setup) */}
+        {/* NEW ADDITION - Card: Data Management (Feature 5) */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Data Backup & Export</Text>
+            <Download size={18} color="#dd6b20" />
+          </View>
+          <Text style={styles.infoDescription}>
+            Export your blood pressure log metrics out to an open format .CSV spreadsheet file for spreadsheets, or bring backups back in.
+          </Text>
+          
+          <View style={styles.dataActionContainer}>
+            <TouchableOpacity style={styles.exportActionBtn} onPress={handleExportCSV}>
+              <Download size={16} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.exportActionText}>Export CSV</Text>
+            </TouchableOpacity>
+
+            {isWeb ? (
+              <label style={styles.importActionLabel}>
+                <Upload size={16} color="#dd6b20" style={{ marginRight: 6 }} />
+                <Text style={styles.importActionText}>Import CSV</Text>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleWebCSVImport}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            ) : (
+              <TouchableOpacity 
+                style={styles.importActionBtnMobile} 
+                onPress={() => Alert.alert('Import Engine', 'Use standard browser environments to parse local physical files smoothly into your database data structure records.')}
+              >
+                <Upload size={16} color="#dd6b20" style={{ marginRight: 6 }} />
+                <Text style={styles.importActionText}>Import CSV</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Card: Units Preferences */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Units of Measurement</Text>
@@ -209,7 +381,6 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.preferences}>
-            {/* Weight Preference Toggle */}
             <View style={styles.preferenceRow}>
               <Text style={styles.preferenceLabel}>Weight Units</Text>
               <View style={styles.toggleContainer}>
@@ -217,7 +388,6 @@ export default function SettingsScreen() {
                   style={[styles.toggleBtn, weightUnit === 'lbs' && styles.toggleBtnActive]}
                   onPress={async () => {
                     setWeightUnit('lbs');
-                    // Automatically save unit change to storage
                     const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
                     const current = jsonValue ? JSON.parse(jsonValue) : {};
                     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, weightUnit: 'lbs' }));
@@ -239,7 +409,6 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            {/* Height Preference Toggle */}
             <View style={styles.preferenceRow}>
               <Text style={styles.preferenceLabel}>Height Units</Text>
               <View style={styles.toggleContainer}>
@@ -336,7 +505,7 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'between',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -345,6 +514,58 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     flex: 1,
+  },
+  infoDescription: {
+    fontSize: 12,
+    color: '#a0aec0',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  dataActionContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  exportActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#dd6b20',
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exportActionText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  importActionLabel: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(221, 107, 32, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(221, 107, 32, 0.3)',
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
+  importActionBtnMobile: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: 'rgba(221, 107, 32, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(221, 107, 32, 0.3)',
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  importActionText: {
+    color: '#dd6b20',
+    fontSize: 13,
+    fontWeight: '700',
   },
   editButton: {
     backgroundColor: 'rgba(221, 107, 32, 0.1)',
