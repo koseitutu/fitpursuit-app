@@ -12,18 +12,19 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Scale, Ruler, Calendar, Check, Sliders, Download, Upload } from 'lucide-react-native';
+import { User, Scale, Ruler, Calendar, Check, Sliders, Download, Upload, Moon, Sun } from 'lucide-react-native';
 
 const STORAGE_KEY = '@fitpursuit_profile';
-const BP_STORAGE_KEY = '@fitpursuit_bp_logs'; // Key matching your BloodPressure screen logs
+const BP_STORAGE_KEY = '@fitpursuit_bp_logs';
 const isWeb = typeof document !== 'undefined';
 
-export default function SettingsScreen() {
+// We accept theme and toggleTheme directly as props from App.js
+export default function SettingsScreen({ theme, toggleTheme }) {
   // Loading & State
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error' | null
-  const [csvStatus, setCsvStatus] = useState(null);    // CSV feedback message
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [csvStatus, setCsvStatus] = useState(null);
 
   // Profile Form States
   const [name, setName] = useState('');
@@ -32,10 +33,9 @@ export default function SettingsScreen() {
   const [weight, setWeight] = useState('');
 
   // Unit Preferences States
-  const [weightUnit, setWeightUnit] = useState('lbs'); // 'lbs' | 'kg'
-  const [heightUnit, setHeightUnit] = useState('in');  // 'in' | 'cm'
+  const [weightUnit, setWeightUnit] = useState('lbs');
+  const [heightUnit, setHeightUnit] = useState('in');
 
-  // Load existing profile from AsyncStorage when screen mounts
   useEffect(() => {
     loadProfileData();
   }, []);
@@ -88,7 +88,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- FEATURE 5: MANUAL JAVASCRIPT CSV EXPORT ENGINE ---
   const handleExportCSV = async () => {
     setCsvStatus(null);
     try {
@@ -104,23 +103,19 @@ export default function SettingsScreen() {
         return;
       }
 
-      // 1. Build the CSV Header row
       let csvContent = 'id,systolic,diastolic,pulse,notes,date\n';
-
-      // 2. Map items out into clean text lines split by commas
       records.forEach((item) => {
         const row = [
           item.id || '',
           item.systolic || '',
           item.diastolic || '',
           item.pulse || '',
-          `"${(item.notes || '').replace(/"/g, '""')}"`, // Sanitizing standard quotes inside text fields
+          `"${(item.notes || '').replace(/"/g, '""')}"`,
           item.date || ''
         ].join(',');
         csvContent += row + '\n';
       });
 
-      // 3. Platform Execution Layer
       if (isWeb) {
         const blob = new document.defaultView.Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = document.defaultView.URL.createObjectURL(blob);
@@ -134,8 +129,7 @@ export default function SettingsScreen() {
         setCsvStatus('✓ Data exported successfully!');
         setTimeout(() => setCsvStatus(null), 4000);
       } else {
-        // Safe Native fallback display configuration
-        Alert.alert('Export Complete', 'Your backup string generated. In a live production store layout, this string streams to native device documents.');
+        Alert.alert('Export Complete', 'Your backup string generated in console logs.');
         console.log('FitPursuit CSV Output String Data:\n', csvContent);
       }
     } catch (error) {
@@ -144,7 +138,6 @@ export default function SettingsScreen() {
     }
   };
 
-  // --- FEATURE 5: MANUAL JAVASCRIPT CSV IMPORT ENGINE ---
   const handleWebCSVImport = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -160,7 +153,6 @@ export default function SettingsScreen() {
           return;
         }
 
-        // Parse headers to map out indexes
         const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
         const sysIdx = headers.indexOf('systolic');
         const diaIdx = headers.indexOf('diastolic');
@@ -175,7 +167,6 @@ export default function SettingsScreen() {
 
         const importedRecords = [];
         for (let i = 1; i < lines.length; i++) {
-          // Splitting columns while respecting simple quoted notes
           const columns = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
           
           if (columns.length >= 2) {
@@ -195,11 +186,9 @@ export default function SettingsScreen() {
           }
         }
 
-        // Pull existing records to perform a clean non-destructive merge
         const existingData = await AsyncStorage.getItem(BP_STORAGE_KEY);
         const currentLogs = existingData ? JSON.parse(existingData) : [];
         
-        // Merge records safely checking for duplicates by unique item ID
         const mergedLogs = [...currentLogs];
         importedRecords.forEach(newRec => {
           if (!mergedLogs.some(existingRec => existingRec.id === newRec.id)) {
@@ -220,7 +209,7 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#dd6b20" />
       </View>
     );
@@ -229,11 +218,11 @@ export default function SettingsScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.subtitle}>Manage your profile and app preferences</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>Manage your profile and app preferences</Text>
 
         {/* Status Messaging */}
         {saveStatus === 'success' && (
@@ -253,9 +242,9 @@ export default function SettingsScreen() {
         )}
 
         {/* Card: Profile Information */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Personal Profile</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Personal Profile</Text>
             {!isEditing ? (
               <TouchableOpacity onPress={() => setIsEditing(true)} style={styles.editButton}>
                 <Text style={styles.editButtonText}>Edit</Text>
@@ -272,10 +261,10 @@ export default function SettingsScreen() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <User size={16} color="#dd6b20" style={styles.inputIcon} />
-                <Text style={styles.label}>Full Name</Text>
+                <Text style={[styles.label, { color: theme.textMuted }]}>Full Name</Text>
               </View>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }, !isEditing && styles.disabledInput]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your name"
@@ -287,10 +276,10 @@ export default function SettingsScreen() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Calendar size={16} color="#dd6b20" style={styles.inputIcon} />
-                <Text style={styles.label}>Age</Text>
+                <Text style={[styles.label, { color: theme.textMuted }]}>Age</Text>
               </View>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }, !isEditing && styles.disabledInput]}
                 value={age}
                 onChangeText={setAge}
                 keyboardType="number-pad"
@@ -303,10 +292,10 @@ export default function SettingsScreen() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Ruler size={16} color="#dd6b20" style={styles.inputIcon} />
-                <Text style={styles.label}>Height ({heightUnit})</Text>
+                <Text style={[styles.label, { color: theme.textMuted }]}>Height ({heightUnit})</Text>
               </View>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }, !isEditing && styles.disabledInput]}
                 value={height}
                 onChangeText={setHeight}
                 keyboardType="decimal-pad"
@@ -319,10 +308,10 @@ export default function SettingsScreen() {
             <View style={styles.inputGroup}>
               <View style={styles.labelContainer}>
                 <Scale size={16} color="#dd6b20" style={styles.inputIcon} />
-                <Text style={styles.label}>Initial Weight ({weightUnit})</Text>
+                <Text style={[styles.label, { color: theme.textMuted }]}>Initial Weight ({weightUnit})</Text>
               </View>
               <TextInput
-                style={[styles.input, !isEditing && styles.disabledInput]}
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }, !isEditing && styles.disabledInput]}
                 value={weight}
                 onChangeText={setWeight}
                 keyboardType="decimal-pad"
@@ -334,13 +323,39 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* NEW ADDITION - Card: Data Management (Feature 5) */}
-        <View style={styles.card}>
+        {/* NEW ADDITION - Card: Theme Mode Custom Integration (Feature 6) */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Data Backup & Export</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>App Display Theme</Text>
+            {theme.mode === 'dark' ? <Moon size={18} color="#dd6b20" /> : <Sun size={18} color="#dd6b20" />}
+          </View>
+          
+          <View style={styles.preferenceRow}>
+            <Text style={[styles.preferenceLabel, { color: theme.text }]}>Interface Theme</Text>
+            <View style={[styles.toggleContainer, { backgroundColor: theme.background }]}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, theme.mode === 'light' && styles.toggleBtnActive]}
+                onPress={toggleTheme}
+              >
+                <Text style={[styles.toggleBtnText, theme.mode === 'light' && styles.toggleBtnTextActive]}>LIGHT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, theme.mode === 'dark' && styles.toggleBtnActive]}
+                onPress={toggleTheme}
+              >
+                <Text style={[styles.toggleBtnText, theme.mode === 'dark' && styles.toggleBtnTextActive]}>DARK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Card: Data Management */}
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Data Backup & Export</Text>
             <Download size={18} color="#dd6b20" />
           </View>
-          <Text style={styles.infoDescription}>
+          <Text style={[styles.infoDescription, { color: theme.textMuted }]}>
             Export your blood pressure log metrics out to an open format .CSV spreadsheet file for spreadsheets, or bring backups back in.
           </Text>
           
@@ -351,7 +366,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
 
             {isWeb ? (
-              <label style={styles.importActionLabel}>
+              <label style={[styles.importActionLabel, { backgroundColor: theme.mode === 'dark' ? 'rgba(221, 107, 32, 0.08)' : 'rgba(221, 107, 32, 0.04)' }]}>
                 <Upload size={16} color="#dd6b20" style={{ marginRight: 6 }} />
                 <Text style={styles.importActionText}>Import CSV</Text>
                 <input
@@ -363,8 +378,8 @@ export default function SettingsScreen() {
               </label>
             ) : (
               <TouchableOpacity 
-                style={styles.importActionBtnMobile} 
-                onPress={() => Alert.alert('Import Engine', 'Use standard browser environments to parse local physical files smoothly into your database data structure records.')}
+                style={[styles.importActionBtnMobile, { backgroundColor: theme.mode === 'dark' ? 'rgba(221, 107, 32, 0.08)' : 'rgba(221, 107, 32, 0.04)' }]} 
+                onPress={() => Alert.alert('Import Engine', 'Use standard browser environments to parse local physical files smoothly.')}
               >
                 <Upload size={16} color="#dd6b20" style={{ marginRight: 6 }} />
                 <Text style={styles.importActionText}>Import CSV</Text>
@@ -374,16 +389,16 @@ export default function SettingsScreen() {
         </View>
 
         {/* Card: Units Preferences */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Units of Measurement</Text>
+            <Text style={[styles.cardTitle, { color: theme.text }]}>Units of Measurement</Text>
             <Sliders size={18} color="#dd6b20" />
           </View>
 
           <View style={styles.preferences}>
             <View style={styles.preferenceRow}>
-              <Text style={styles.preferenceLabel}>Weight Units</Text>
-              <View style={styles.toggleContainer}>
+              <Text style={[styles.preferenceLabel, { color: theme.text }]}>Weight Units</Text>
+              <View style={[styles.toggleContainer, { backgroundColor: theme.background }]}>
                 <TouchableOpacity
                   style={[styles.toggleBtn, weightUnit === 'lbs' && styles.toggleBtnActive]}
                   onPress={async () => {
@@ -410,8 +425,8 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.preferenceRow}>
-              <Text style={styles.preferenceLabel}>Height Units</Text>
-              <View style={styles.toggleContainer}>
+              <Text style={[styles.preferenceLabel, { color: theme.text }]}>Height Units</Text>
+              <View style={[styles.toggleContainer, { backgroundColor: theme.background }]}>
                 <TouchableOpacity
                   style={[styles.toggleBtn, heightUnit === 'in' && styles.toggleBtnActive]}
                   onPress={async () => {
@@ -446,7 +461,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#14171c',
   },
   scrollContent: {
     padding: 24,
@@ -454,19 +468,16 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#14171c',
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
     marginTop: 16,
   },
   subtitle: {
     fontSize: 14,
-    color: '#718096',
     marginTop: 4,
     marginBottom: 24,
   },
@@ -496,12 +507,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#1e232b',
     borderRadius: 20,
     padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -512,12 +521,10 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#ffffff',
     flex: 1,
   },
   infoDescription: {
     fontSize: 12,
-    color: '#a0aec0',
     lineHeight: 18,
     marginBottom: 16,
   },
@@ -542,7 +549,6 @@ const styles = StyleSheet.create({
   importActionLabel: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(221, 107, 32, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(221, 107, 32, 0.3)',
     height: 42,
@@ -554,7 +560,6 @@ const styles = StyleSheet.create({
   importActionBtnMobile: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: 'rgba(221, 107, 32, 0.08)',
     borderWidth: 1,
     borderColor: 'rgba(221, 107, 32, 0.3)',
     height: 42,
@@ -605,22 +610,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#a0aec0',
   },
   input: {
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 12,
     padding: 12,
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
   },
   disabledInput: {
     color: '#718096',
     borderColor: 'transparent',
-    backgroundColor: 'rgba(20, 23, 28, 0.5)',
+    backgroundColor: 'rgba(20, 23, 28, 0.3)',
   },
   preferences: {
     gap: 16,
@@ -633,11 +634,9 @@ const styles = StyleSheet.create({
   preferenceLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#e2e8f0',
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#14171c',
     borderRadius: 10,
     padding: 3,
   },
