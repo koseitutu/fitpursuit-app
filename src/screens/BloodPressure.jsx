@@ -5,8 +5,8 @@ const isWeb = typeof document !== 'undefined';
 
 let View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, FlatList;
 let AsyncStorage;
-let Heart, Activity as ActivityIcon, Calendar, Plus, Trash2, Edit2, X, ChevronLeft, ChevronRight, Info;
-
+let Heart, Activity, Calendar, Plus, Trash2, Edit2, X, ChevronLeft, ChevronRight, Info;
+let ActivityIcon = Activity;
 if (isWeb) {
   // Web compatibility mock layer for browser rendering
   StyleSheet = {
