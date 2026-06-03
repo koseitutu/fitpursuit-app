@@ -4,15 +4,24 @@
     "slug": "fitpursuit-xfwsoenm9avmvn0aexv4p",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#14171c"
+    },
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "package": "com.koseitutu.fitpursuit",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#14171c"
       }
+    },
+    "web": {
+      "favicon": "./assets/icon.png"
     },
     "extra": {
       "eas": {
