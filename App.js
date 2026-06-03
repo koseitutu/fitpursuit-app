@@ -5,6 +5,8 @@ import Dashboard from './src/screens/Dashboard';
 import Workout from './src/screens/Workout';
 import Analytics from './src/screens/Analytics';
 import SettingsScreen from './src/screens/SettingsScreen';
+// 1. Import your new Blood Pressure screen
+import BloodPressureScreen from './src/screens/BloodPressure'; 
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = React.useState('Dashboard');
@@ -25,6 +27,8 @@ export default function App() {
         {currentScreen === 'Workout' && <Workout route={{ params: workoutParam }} navigation={{ navigate }} />}
         {currentScreen === 'Analytics' && <Analytics />}
         {currentScreen === 'Settings' && <SettingsScreen />}
+        {/* 2. Add the screen to the viewport controller */}
+        {currentScreen === 'BloodPressure' && <BloodPressureScreen />}
       </View>
 
       {/* Navigation Tab Bar */}
@@ -39,6 +43,11 @@ export default function App() {
         
         <TouchableOpacity onPress={() => navigate('Analytics')} style={styles.navItem}>
           <Text style={[styles.navText, currentScreen === 'Analytics' && styles.activeNav]}>Logs</Text>
+        </TouchableOpacity>
+
+        {/* 3. Add the button to your navigation bar */}
+        <TouchableOpacity onPress={() => navigate('BloodPressure')} style={styles.navItem}>
+          <Text style={[styles.navText, currentScreen === 'BloodPressure' && styles.activeNav]}>BP</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => navigate('Settings')} style={styles.navItem}>
