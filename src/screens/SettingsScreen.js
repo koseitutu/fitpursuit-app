@@ -7,14 +7,15 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
-  Alert
+  Alert,
+  Platform // <-- FIX 1: Added missing Platform import to prevent web crash
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Shield, Moon, Sun, Bell, SquareStack } from 'lucide-react-native';
 
 const STORAGE_KEY = '@fitpursuit_profile';
 
-export default function SettingsScreen({ theme, toggleTheme, appSettings, updateAppSettings }) {
+export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   // Local Profile Form States
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -36,7 +37,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings, update
         setTargetWeight(data.targetWeight ? data.targetWeight.toString() : '');
       }
     } catch (e) {
-      Alert.alert('Error', 'Failed to load profile settings data.');
+      console.log('Failed to load profile settings data.', e);
     }
   };
 
@@ -50,15 +51,28 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings, update
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profileData));
-      Alert.alert('Success', 'Profile settings updated successfully!');
+      
+      // Platform-safe notification alert
+      if (Platform.OS === 'web') {
+        alert('Profile settings updated successfully!');
+      } else {
+        Alert.alert('Success', 'Profile settings updated successfully!');
+      }
     } catch (e) {
-      Alert.alert('Error', 'Failed to save profile changes.');
+      if (Platform.OS === 'web') {
+        alert('Failed to save profile changes.');
+      } else {
+        Alert.alert('Error', 'Failed to save profile changes.');
+      }
     }
   };
 
   const toggleWeightUnit = () => {
+    // FIX 2: Corrected function call to match App.js globalAppSettings structure
     const nextUnit = appSettings.weightUnit === 'lbs' ? 'kg' : 'lbs';
-    updateAppSettings({ weightUnit: nextUnit });
+    if (appSettings.updateWeightUnit) {
+      appSettings.updateWeightUnit(nextUnit);
+    }
   };
 
   return (
@@ -140,7 +154,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings, update
             <Text style={[styles.settingLabel, { color: theme.text }]}>Dark Mode Interface</Text>
           </View>
           <Switch
-            value={appSettings.isDarkMode}
+            value={theme.mode === 'dark'}
             onValueChange={toggleTheme}
             trackColor={{ false: '#718096', true: '#dd6b20' }}
             thumbColor={Platform.OS === 'android' ? '#ffffff' : undefined}
@@ -154,7 +168,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings, update
             <Text style={[styles.settingLabel, { color: theme.text }]}>Measurement Weight Units</Text>
           </View>
           <TouchableOpacity style={styles.unitBadgeButton} onPress={toggleWeightUnit}>
-            <Text style={styles.unitBadgeText}>{appSettings.weightUnit.toUpperCase()}</Text>
+            <Text style={styles.unitBadgeText}>{appSettings.weightUnit ? appSettings.weightUnit.toUpperCase() : 'LBS'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -181,7 +195,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   sectionTitle: { fontSize: 15, fontWeight: '700' },
   formGroup: { marginBottom: 14, width: '100%' },
-  label: { fontSize: 11, fontWeight: '700', marginBottom: 6, uppercase: true },
+  label: { fontSize: 11, fontWeight: '700', marginBottom: 6 },
   input: { height: 42, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontWeight: '600' },
   inlineRow: { flexDirection: 'row', gap: 12 },
   saveButton: { backgroundColor: '#dd6b20', height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
