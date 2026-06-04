@@ -14,25 +14,33 @@ import {
   ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Scale, Trash2, Calendar, X, Dumbbell } from 'lucide-react-native';
+import { Scale, Trash2, Calendar, X, Dumbbell, Heart } from 'lucide-react-native';
 
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
 const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
+const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history'; // New tracking vector key
 
 export default function Analytics({ theme, appSettings }) {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('weight'); // 'weight' or 'workouts'
+  const [activeTab, setActiveTab] = useState('weight'); // 'weight', 'workouts', or 'vitals'
   
   // Storage Vectors
   const [profile, setProfile] = useState(null);
   const [history, setHistory] = useState([]);
   const [workoutHistory, setWorkoutHistory] = useState([]);
+  const [vitalsHistory, setVitalsHistory] = useState([]);
   
   // Weight Log Form states
   const [inputWeight, setInputWeight] = useState('');
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
   
+  // Vitals Log Form States
+  const [inputSystolic, setInputSystolic] = useState('');
+  const [inputDiastolic, setInputDiastolic] = useState('');
+  const [inputBpm, setInputBpm] = useState('');
+  const [vitalsDate, setVitalsDate] = useState(new Date().toISOString().split('T')[0]);
+
   // Weight Edit Modal States
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -58,6 +66,7 @@ export default function Analytics({ theme, appSettings }) {
       const storedProfile = await AsyncStorage.getItem(PROFILE_KEY);
       const storedWeightHistory = await AsyncStorage.getItem(HISTORY_KEY);
       const storedWorkoutHistory = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
+      const storedVitalsHistory = await AsyncStorage.getItem(VITALS_HISTORY_KEY);
 
       if (storedProfile) setProfile(JSON.parse(storedProfile));
       
@@ -68,6 +77,11 @@ export default function Analytics({ theme, appSettings }) {
       
       if (storedWorkoutHistory) {
         setWorkoutHistory(JSON.parse(storedWorkoutHistory));
+      }
+
+      if (storedVitalsHistory) {
+        const parsedVitals = JSON.parse(storedVitalsHistory);
+        setVitalsHistory(parsedVitals.sort((a, b) => new Date(b.date) - new Date(a.date)));
       }
     } catch (e) {
       console.error('Failed to parse logs repository values.', e);
@@ -99,6 +113,35 @@ export default function Analytics({ theme, appSettings }) {
     }
   };
 
+  const handleAddVitalsLog = async () => {
+    if (!inputSystolic || !inputDiastolic || !inputBpm || isNaN(inputSystolic) || isNaN(inputDiastolic) || isNaN(inputBpm)) {
+      showStatusAlert('Please complete all fields with numbers.');
+      return;
+    }
+
+    try {
+      const newVitalsLog = {
+        id: Date.now().toString(),
+        systolic: parseInt(inputSystolic),
+        diastolic: parseInt(inputDiastolic),
+        bpm: parseInt(inputBpm),
+        date: vitalsDate || new Date().toISOString().split('T')[0]
+      };
+
+      const updatedVitals = [newVitalsLog, ...vitalsHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+      await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updatedVitals));
+      setVitalsHistory(updatedVitals);
+      
+      // Reset input fields cleanly
+      setInputSystolic('');
+      setInputDiastolic('');
+      setInputBpm('');
+      showStatusAlert('Cardiovascular vitals recorded successfully!');
+    } catch (e) {
+      showStatusAlert('Failed to log vitals entry.');
+    }
+  };
+
   const handleDeleteWeightLog = (id) => {
     Alert.alert('Delete Log Entry', 'Are you sure you want to remove this historical weight calculation point?', [
       { text: 'Cancel', style: 'cancel' },
@@ -124,6 +167,21 @@ export default function Analytics({ theme, appSettings }) {
           const updated = workoutHistory.filter(item => item.id !== id);
           await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
           setWorkoutHistory(updated);
+        }
+      }
+    ]);
+  };
+
+  const handleDeleteVitalsLog = (id) => {
+    Alert.alert('Delete Vitals Entry', 'Are you sure you want to clear this blood pressure and heart rate record?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = vitalsHistory.filter(item => item.id !== id);
+          await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updated));
+          setVitalsHistory(updated);
         }
       }
     ]);
@@ -159,7 +217,6 @@ export default function Analytics({ theme, appSettings }) {
 
   // Workout Nested Editor Handlers
   const openWorkoutEditModal = (session) => {
-    // Deep clone the object to avoid mutating state directly while editing
     setEditingWorkout(JSON.parse(JSON.stringify(session)));
     setWorkoutModalVisible(true);
   };
@@ -209,22 +266,30 @@ export default function Analytics({ theme, appSettings }) {
       <View style={styles.header}>
         <Text style={[styles.mainTitle, { color: theme.text }]}>Analytics & Logs</Text>
         
-        {/* Toggle Segments Controller Bar */}
+        {/* Expanded Three-Segment Toggles Controller Bar */}
         <View style={[styles.segmentContainer, { backgroundColor: theme.card }]}>
           <TouchableOpacity 
             style={[styles.segmentBtn, activeTab === 'weight' && styles.segmentBtnActive]} 
             onPress={() => setActiveTab('weight')}
           >
-            <Scale size={16} color={activeTab === 'weight' ? '#ffffff' : theme.textMuted} />
-            <Text style={[styles.segmentText, { color: activeTab === 'weight' ? '#ffffff' : theme.textMuted }]}>Weight Logs</Text>
+            <Scale size={14} color={activeTab === 'weight' ? '#ffffff' : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: activeTab === 'weight' ? '#ffffff' : theme.textMuted }]}>Weight</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 
             style={[styles.segmentBtn, activeTab === 'workouts' && styles.segmentBtnActive]} 
             onPress={() => setActiveTab('workouts')}
           >
-            <Dumbbell size={16} color={activeTab === 'workouts' ? '#ffffff' : theme.textMuted} />
-            <Text style={[styles.segmentText, { color: activeTab === 'workouts' ? '#ffffff' : theme.textMuted }]}>Workout Logs</Text>
+            <Dumbbell size={14} color={activeTab === 'workouts' ? '#ffffff' : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: activeTab === 'workouts' ? '#ffffff' : theme.textMuted }]}>Workouts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.segmentBtn, activeTab === 'vitals' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('vitals')}
+          >
+            <Heart size={14} color={activeTab === 'vitals' ? '#ffffff' : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: activeTab === 'vitals' ? '#ffffff' : theme.textMuted }]}>Vitals</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -235,8 +300,8 @@ export default function Analytics({ theme, appSettings }) {
         </View>
       )}
 
-      {activeTab === 'weight' ? (
-        /* WEIGHT LOG TRACKING TAB LAYOUT ENGINE */
+      {activeTab === 'weight' && (
+        /* TAB 1: WEIGHT LOG TRACKING TAB LAYOUT ENGINE */
         <FlatList
           data={history}
           keyExtractor={(item) => item.id}
@@ -288,8 +353,10 @@ export default function Analytics({ theme, appSettings }) {
             </View>
           }
         />
-      ) : (
-        /* WORKOUT ROUTINE HISTORY TAB LAYOUT ENGINE */
+      )}
+
+      {activeTab === 'workouts' && (
+        /* TAB 2: WORKOUT ROUTINE HISTORY TAB LAYOUT ENGINE */
         <FlatList
           data={workoutHistory}
           keyExtractor={(item) => item.id}
@@ -332,6 +399,82 @@ export default function Analytics({ theme, appSettings }) {
               <Dumbbell size={32} color={theme.textMuted} />
               <Text style={[styles.blankSlateText, { color: theme.text }]}>No completed blueprints recorded yet.</Text>
               <Text style={{ color: theme.textMuted, fontSize: 11, textAlign: 'center', marginTop: 4 }}>Complete exercises inside the Trainer tab to populate history.</Text>
+            </View>
+          }
+        />
+      )}
+
+      {activeTab === 'vitals' && (
+        /* TAB 3: CARDIOVASCULAR HEALTH & VITALS ENGINE */
+        <FlatList
+          data={vitalsHistory}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={
+            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Text style={[styles.cardHeading, { color: theme.text }]}>Log Vitals Profile (BP & Heart Rate)</Text>
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    placeholder="Sys (Top)"
+                    placeholderTextColor="#4a5568"
+                    keyboardType="numeric"
+                    value={inputSystolic}
+                    onChangeText={setInputSystolic}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  />
+                  <TextInput
+                    placeholder="Dia (Bottom)"
+                    placeholderTextColor="#4a5568"
+                    keyboardType="numeric"
+                    value={inputDiastolic}
+                    onChangeText={setInputDiastolic}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  />
+                  <TextInput
+                    placeholder="BPM (Pulse)"
+                    placeholderTextColor="#4a5568"
+                    keyboardType="numeric"
+                    value={inputBpm}
+                    onChangeText={setInputBpm}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  />
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TextInput
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#4a5568"
+                    value={vitalsDate}
+                    onChangeText={setVitalsDate}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, flex: 2 }]}
+                  />
+                  <TouchableOpacity style={[styles.appendRecordBtn, { flex: 1 }]} onPress={handleAddVitalsLog}>
+                    <Text style={styles.appendRecordText}>Log Vitals</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          }
+          renderItem={({ item }) => (
+            <View style={[styles.logRow, { backgroundColor: theme.card, borderColor: theme.border, height: 60 }]}>
+              <Heart size={16} color="#e53e3e" />
+              <View style={{ marginLeft: 10, flex: 1 }}>
+                <Text style={[styles.logDateLabel, { color: theme.text, marginLeft: 0 }]}>{item.date}</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11 }}>Cardio Profile</Text>
+              </View>
+              <View style={{ flex: 1.5, alignItems: 'flex-end', paddingRight: 16 }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>{item.systolic}/{item.diastolic} mmHg</Text>
+                <Text style={{ color: '#e53e3e', fontSize: 11, fontWeight: '600' }}>{item.bpm} BPM Pulse</Text>
+              </View>
+              <TouchableOpacity style={styles.iconButtonAction} onPress={() => handleDeleteVitalsLog(item.id)}>
+                <Trash2 size={16} color="#e53e3e" />
+              </TouchableOpacity>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.blankSlateBox}>
+              <Heart size={32} color={theme.textMuted} />
+              <Text style={[styles.blankSlateText, { color: theme.text }]}>No cardiovascular vital entries recorded.</Text>
             </View>
           }
         />
@@ -387,7 +530,6 @@ export default function Analytics({ theme, appSettings }) {
             </View>
 
             <ScrollView contentContainerStyle={{ gap: 16, paddingVertical: 14 }}>
-              {/* Date Input Field for Session Modification */}
               <View style={{ gap: 4 }}>
                 <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>SESSION DATE</Text>
                 <TextInput
@@ -397,7 +539,6 @@ export default function Analytics({ theme, appSettings }) {
                 />
               </View>
 
-              {/* Dynamic nested exercise array modification renderer maps inputs loops */}
               {editingWorkout?.exercisesCompleted.map((ex, exIdx) => (
                 <View key={exIdx} style={{ gap: 8, borderTopWidth: 1, borderTopColor: 'rgba(113, 128, 150, 0.2)', paddingTop: 12 }}>
                   <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{ex.name}</Text>
@@ -445,15 +586,15 @@ const styles = StyleSheet.create({
   header: { padding: 20, paddingTop: 50, gap: 12 },
   mainTitle: { fontSize: 26, fontWeight: '800' },
   segmentContainer: { flexDirection: 'row', borderRadius: 12, padding: 4 },
-  segmentBtn: { flex: 1, flexDirection: 'row', height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center', gap: 6 },
+  segmentBtn: { flex: 1, flexDirection: 'row', height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center', gap: 4 },
   segmentBtnActive: { backgroundColor: '#dd6b20' },
-  segmentText: { fontSize: 12, fontWeight: '700' },
+  segmentText: { fontSize: 11, fontWeight: '700' },
   listContainer: { padding: 20, paddingBottom: 100 },
   card: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 20 },
   cardHeading: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
   inlineForm: { flexDirection: 'row', gap: 10, height: 42 },
   inputField: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 13, fontWeight: '600' },
-  appendRecordBtn: { backgroundColor: '#dd6b20', paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  appendRecordBtn: { backgroundColor: '#dd6b20', paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center', alignItems: 'center', height: 42 },
   appendRecordText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
   logRow: { flexDirection: 'row', height: 50, borderRadius: 12, paddingHorizontal: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1 },
   logDateLabel: { marginLeft: 10, fontSize: 13, fontWeight: '600' },
