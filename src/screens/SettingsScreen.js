@@ -8,10 +8,10 @@ import {
   ScrollView,
   Switch,
   Alert,
-  Platform // <-- FIX 1: Added missing Platform import to prevent web crash
+  Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Shield, Moon, Sun, Bell, SquareStack } from 'lucide-react-native';
+import { User, Shield, Moon, Sun, Bell, SquareStack, Sliders } from 'lucide-react-native';
 
 const STORAGE_KEY = '@fitpursuit_profile';
 
@@ -19,8 +19,16 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   // Local Profile Form States
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
-  const [height, setHeight] = useState('');
   const [targetWeight, setTargetWeight] = useState('');
+
+  // Height Specific Inputs Layout Split
+  const [heightFeet, setHeightFeet] = useState('');
+  const [heightInches, setHeightInches] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+
+  // Sync current layout configurations directly from App.js master states
+  const currentHeightUnit = appSettings?.heightUnit || 'ft-in';
+  const currentWeightUnit = appSettings?.weightUnit || 'lbs';
 
   useEffect(() => {
     loadProfileData();
@@ -33,8 +41,18 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         const data = JSON.parse(jsonValue);
         setName(data.name || '');
         setAge(data.age ? data.age.toString() : '');
-        setHeight(data.height ? data.height.toString() : '');
         setTargetWeight(data.targetWeight ? data.targetWeight.toString() : '');
+
+        // Safely parse saved height configurations based on units
+        if (data.heightUnit === 'ft-in' || (!data.heightUnit && data.height)) {
+          const totalInches = data.height ? parseFloat(data.height) : 0;
+          if (totalInches > 0) {
+            setHeightFeet(Math.floor(totalInches / 12).toString());
+            setHeightInches(Math.round(totalInches % 12).toString());
+          }
+        } else if (data.heightUnit === 'cm') {
+          setHeightCm(data.height ? data.height.toString() : '');
+        }
       }
     } catch (e) {
       console.log('Failed to load profile settings data.', e);
@@ -43,16 +61,28 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
 
   const handleSaveProfile = async () => {
     try {
+      // Calculate height mathematically based on active unit layout
+      let calculatedHeight = null;
+      if (currentHeightUnit === 'ft-in') {
+        const ft = parseInt(heightFeet, 10) || 0;
+        const inch = parseInt(heightInches, 10) || 0;
+        calculatedHeight = (ft * 12) + inch || null; // Saved as total inches
+      } else {
+        calculatedHeight = heightCm ? parseFloat(heightCm) : null;
+      }
+
       const profileData = {
-        name,
-        age: parseInt(age) || 0,
-        height: parseFloat(height) || 0,
-        targetWeight: parseFloat(targetWeight) || 0,
+        name: name.trim(),
+        age: age ? parseInt(age, 10) : null,
+        height: calculatedHeight,
+        targetWeight: targetWeight ? parseFloat(targetWeight) : null,
+        weightUnit: currentWeightUnit,
+        heightUnit: currentHeightUnit,
+        updatedAt: new Date().toISOString(),
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profileData));
       
-      // Platform-safe notification alert
       if (Platform.OS === 'web') {
         alert('Profile settings updated successfully!');
       } else {
@@ -68,10 +98,16 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   };
 
   const toggleWeightUnit = () => {
-    // FIX 2: Corrected function call to match App.js globalAppSettings structure
-    const nextUnit = appSettings.weightUnit === 'lbs' ? 'kg' : 'lbs';
-    if (appSettings.updateWeightUnit) {
+    const nextUnit = currentWeightUnit === 'lbs' ? 'kg' : 'lbs';
+    if (appSettings?.updateWeightUnit) {
       appSettings.updateWeightUnit(nextUnit);
+    }
+  };
+
+  const toggleHeightUnit = () => {
+    const nextUnit = currentHeightUnit === 'ft-in' ? 'cm' : 'ft-in';
+    if (appSettings?.updateHeightUnit) {
+      appSettings.updateHeightUnit(nextUnit);
     }
   };
 
@@ -110,27 +146,59 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
             />
           </View>
 
-          <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>Height (cm)</Text>
-            <TextInput
-              style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-              value={height}
-              onChangeText={setHeight}
-              keyboardType="numeric"
-              placeholder="cm"
-              placeholderTextColor="#4a5568"
-            />
+          {/* Dynamic Height Inputs Layout Split Block */}
+          <View style={[styles.formGroup, { flex: 2 }]}>
+            <Text style={[styles.label, { color: theme.textMuted }]}>
+              Height ({currentHeightUnit === 'ft-in' ? 'ft / in' : 'cm'})
+            </Text>
+            
+            {currentHeightUnit === 'ft-in' ? (
+              <View style={styles.splitRowContainer}>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                    value={heightFeet}
+                    onChangeText={setHeightFeet}
+                    keyboardType="numeric"
+                    placeholder="Feet"
+                    placeholderTextColor="#4a5568"
+                  />
+                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>ft</Text>
+                </View>
+                
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                    value={heightInches}
+                    onChangeText={setHeightInches}
+                    keyboardType="numeric"
+                    placeholder="Inches"
+                    placeholderTextColor="#4a5568"
+                  />
+                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>in</Text>
+                </View>
+              </View>
+            ) : (
+              <TextInput
+                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                value={heightCm}
+                onChangeText={setHeightCm}
+                keyboardType="numeric"
+                placeholder="Height in cm"
+                placeholderTextColor="#4a5568"
+              />
+            )}
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>Target Goal Weight ({appSettings.weightUnit})</Text>
+          <Text style={[styles.label, { color: theme.textMuted }]}>Target Goal Weight ({currentWeightUnit})</Text>
           <TextInput
             style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
             value={targetWeight}
             onChangeText={setTargetWeight}
             keyboardType="numeric"
-            placeholder={`Target in ${appSettings.weightUnit}`}
+            placeholder={`Target in ${currentWeightUnit}`}
             placeholderTextColor="#4a5568"
           />
         </View>
@@ -150,7 +218,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         {/* Theme Toggle Row */}
         <View style={styles.settingRow}>
           <View style={styles.settingMeta}>
-            {appSettings.isDarkMode ? <Moon size={16} color={theme.text} /> : <Sun size={16} color={theme.text} />}
+            {theme.mode === 'dark' ? <Moon size={16} color={theme.text} /> : <Sun size={16} color={theme.text} />}
             <Text style={[styles.settingLabel, { color: theme.text }]}>Dark Mode Interface</Text>
           </View>
           <Switch
@@ -161,14 +229,25 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
           />
         </View>
 
-        {/* Units Toggle Row */}
+        {/* Weight Units Toggle Row */}
         <View style={styles.settingRow}>
           <View style={styles.settingMeta}>
             <Bell size={16} color={theme.text} />
             <Text style={[styles.settingLabel, { color: theme.text }]}>Measurement Weight Units</Text>
           </View>
           <TouchableOpacity style={styles.unitBadgeButton} onPress={toggleWeightUnit}>
-            <Text style={styles.unitBadgeText}>{appSettings.weightUnit ? appSettings.weightUnit.toUpperCase() : 'LBS'}</Text>
+            <Text style={styles.unitBadgeText}>{currentWeightUnit.toUpperCase()}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Height Units Toggle Row */}
+        <View style={styles.settingRow}>
+          <View style={styles.settingMeta}>
+            <Sliders size={16} color={theme.text} />
+            <Text style={[styles.settingLabel, { color: theme.text }]}>Measurement Height Units</Text>
+          </View>
+          <TouchableOpacity style={styles.unitBadgeButton} onPress={toggleHeightUnit}>
+            <Text style={styles.unitBadgeText}>{currentHeightUnit === 'ft-in' ? 'FT/IN' : 'CM'}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -198,6 +277,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: '700', marginBottom: 6 },
   input: { height: 42, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontWeight: '600' },
   inlineRow: { flexDirection: 'row', gap: 12 },
+  splitRowContainer: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   saveButton: { backgroundColor: '#dd6b20', height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(113, 128, 150, 0.1)' },
