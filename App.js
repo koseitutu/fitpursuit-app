@@ -37,7 +37,7 @@ export default function App() {
   const [workoutParam, setWorkoutParam] = React.useState(null);
   const [themeMode, setThemeMode] = React.useState('dark');
   
-  // New Global Preferences States (Addresses issues 2, 3, and 4)
+  // Global Preferences States
   const [weightUnit, setWeightUnit] = useState('lbs'); // 'lbs' or 'kg'
   const [heightUnit, setHeightUnit] = useState('ft-in'); // 'ft-in' or 'cm'
 
@@ -68,7 +68,7 @@ export default function App() {
 
   const toggleTheme = async () => {
     const nextTheme = themeMode === 'dark' ? 'light' : 'dark';
-    setThemeMode(nextTheme);
+    ThemeMode(nextTheme);
     await AsyncStorage.setItem('@theme_mode', nextTheme);
   };
 
@@ -117,10 +117,10 @@ export default function App() {
           />
         </TouchableOpacity>
         
-        {/* 2. Exercise Trainer Tab */}
+        {/* 2. Exercise Trainer Tab (Changed from 'fitness' to 'barbell' for consistency) */}
         <TouchableOpacity onPress={() => navigate('Workout', { day: 'Monday' })} style={styles.navItem}>
           <Ionicons 
-            name="fitness" 
+            name="barbell" 
             size={24} 
             color={currentScreen === 'Workout' ? '#dd6b20' : '#718096'} 
           />
