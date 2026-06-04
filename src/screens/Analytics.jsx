@@ -10,10 +10,11 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Alert,
+  ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Scale, Trash2, Calendar, X, Dumbbell, ChevronRight } from 'lucide-react-native';
+import { Scale, Trash2, Calendar, X, Dumbbell } from 'lucide-react-native';
 
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
@@ -32,11 +33,16 @@ export default function Analytics({ theme, appSettings }) {
   const [inputWeight, setInputWeight] = useState('');
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
   
-  // Modals Configurations
+  // Weight Edit Modal States
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editWeight, setEditWeight] = useState('');
   const [editDate, setEditDate] = useState('');
+
+  // Workout Edit Modal States
+  const [workoutModalVisible, setWorkoutModalVisible] = useState(false);
+  const [editingWorkout, setEditingWorkout] = useState(null);
+
   const [statusMessage, setStatusMessage] = useState(null);
 
   // Sync Global Display Preference Units
@@ -123,6 +129,7 @@ export default function Analytics({ theme, appSettings }) {
     ]);
   };
 
+  // Weight Editors
   const openEditModal = (item) => {
     setEditingItem(item);
     setEditWeight(item.weight.toString());
@@ -147,6 +154,40 @@ export default function Analytics({ theme, appSettings }) {
       showStatusAlert('Log details adjusted successfully!');
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  // Workout Nested Editor Handlers
+  const openWorkoutEditModal = (session) => {
+    // Deep clone the object to avoid mutating state directly while editing
+    setEditingWorkout(JSON.parse(JSON.stringify(session)));
+    setWorkoutModalVisible(true);
+  };
+
+  const handleWorkoutInputChange = (exIndex, setIndex, field, value) => {
+    setEditingWorkout(prev => {
+      const copy = { ...prev };
+      copy.exercisesCompleted[exIndex].sets[setIndex][field] = value;
+      return copy;
+    });
+  };
+
+  const handleUpdateWorkoutLog = async () => {
+    try {
+      const updated = workoutHistory.map(item => {
+        if (item.id === editingWorkout.id) {
+          return editingWorkout;
+        }
+        return item;
+      });
+
+      await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
+      setWorkoutHistory(updated);
+      setWorkoutModalVisible(false);
+      showStatusAlert('Workout metrics adjusted successfully!');
+    } catch (e) {
+      console.error(e);
+      showStatusAlert('Failed to update workout log.');
     }
   };
 
@@ -260,12 +301,16 @@ export default function Analytics({ theme, appSettings }) {
                   <Text style={[styles.workoutSessionTitle, { color: theme.text }]}>{item.routineTitle}</Text>
                   <Text style={[styles.workoutSessionMeta, { color: theme.textMuted }]}>{item.day} • {item.date}</Text>
                 </View>
-                <TouchableOpacity onPress={() => handleDeleteWorkoutSession(item.id)}>
-                  <Trash2 size={18} color="#e53e3e" />
-                </TouchableOpacity>
+                <View style={styles.rowControls}>
+                  <TouchableOpacity style={styles.iconButtonAction} onPress={() => openWorkoutEditModal(item)}>
+                    <Text style={{ color: '#dd6b20', fontSize: 12, fontWeight: '700' }}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDeleteWorkoutSession(item.id)}>
+                    <Trash2 size={18} color="#e53e3e" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
-              {/* Map nested Exercise sets items directly */}
               <View style={styles.workoutNestedList}>
                 {item.exercisesCompleted.map((ex, index) => (
                   <View key={index} style={styles.nestedExerciseItemRow}>
@@ -292,12 +337,12 @@ export default function Analytics({ theme, appSettings }) {
         />
       )}
 
-      {/* Weight Editor Dialog Engine */}
+      {/* Modal 1: Weight Editor Dialog Engine */}
       <Modal animationType="fade" transparent={true} visible={editModalVisible}>
         <View style={styles.dialogOverlay}>
           <View style={[styles.dialogContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.dialogHeader}>
-              <Text style={[styles.dialogHeading, { color: theme.text }]}>Adjust Record Context</Text>
+              <Text style={[styles.dialogHeading, { color: theme.text }]}>Adjust Weight Record</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <X size={20} color={theme.textMuted} />
               </TouchableOpacity>
@@ -326,6 +371,70 @@ export default function Analytics({ theme, appSettings }) {
           </View>
         </View>
       </Modal>
+
+      {/* Modal 2: Nested Workout Session Multi-Field Form Editor */}
+      <Modal animationType="slide" transparent={true} visible={workoutModalVisible}>
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContent, { backgroundColor: theme.card, borderColor: theme.border, maxHeight: '80%' }]}>
+            <View style={styles.dialogHeader}>
+              <View>
+                <Text style={[styles.dialogHeading, { color: theme.text }]}>Edit Workout Session</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>{editingWorkout?.routineTitle} ({editingWorkout?.date})</Text>
+              </View>
+              <TouchableOpacity onPress={() => setWorkoutModalVisible(false)}>
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ gap: 16, paddingVertical: 14 }}>
+              {/* Date Input Field for Session Modification */}
+              <View style={{ gap: 4 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>SESSION DATE</Text>
+                <TextInput
+                  value={editingWorkout?.date}
+                  onChangeText={(val) => setEditingWorkout(p => ({ ...p, date: val }))}
+                  style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, height: 40 }]}
+                />
+              </View>
+
+              {/* Dynamic nested exercise array modification renderer maps inputs loops */}
+              {editingWorkout?.exercisesCompleted.map((ex, exIdx) => (
+                <View key={exIdx} style={{ gap: 8, borderTopWidth: 1, borderTopColor: 'rgba(113, 128, 150, 0.2)', paddingTop: 12 }}>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{ex.name}</Text>
+                  
+                  {ex.sets.map((set, sIdx) => (
+                    <View key={sIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, width: 40 }}>Set {sIdx + 1}</Text>
+                      
+                      <TextInput
+                        placeholder={currentWeightUnit}
+                        placeholderTextColor="#4a5568"
+                        keyboardType="numeric"
+                        value={set.weight ? set.weight.toString() : ''}
+                        onChangeText={(val) => handleWorkoutInputChange(exIdx, sIdx, 'weight', val)}
+                        style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, height: 36 }]}
+                      />
+                      
+                      <TextInput
+                        placeholder="reps"
+                        placeholderTextColor="#4a5568"
+                        keyboardType="numeric"
+                        value={set.reps ? set.reps.toString() : ''}
+                        onChangeText={(val) => handleWorkoutInputChange(exIdx, sIdx, 'reps', val)}
+                        style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, height: 36 }]}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.dialogActionBtn} onPress={handleUpdateWorkoutLog}>
+              <Text style={styles.dialogActionBtnText}>Apply Log Adjustments</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -340,7 +449,7 @@ const styles = StyleSheet.create({
   segmentBtnActive: { backgroundColor: '#dd6b20' },
   segmentText: { fontSize: 12, fontWeight: '700' },
   listContainer: { padding: 20, paddingBottom: 100 },
-  card: { borderRadius: 16, padding: 16, borderHorizontalWidth: 1, borderVerticalWidth: 1, borderWidth: 1, marginBottom: 20 },
+  card: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 20 },
   cardHeading: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
   inlineForm: { flexDirection: 'row', gap: 10, height: 42 },
   inputField: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 13, fontWeight: '600' },
@@ -366,8 +475,8 @@ const styles = StyleSheet.create({
   setsBadgeItem: { fontSize: 10, color: '#dd6b20', backgroundColor: 'rgba(221, 107, 32, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: '600' },
   dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
   dialogContent: { borderRadius: 20, padding: 20, borderWidth: 1 },
-  dialogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dialogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   dialogHeading: { fontSize: 16, fontWeight: '700' },
-  dialogActionBtn: { backgroundColor: '#dd6b20', height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
+  dialogActionBtn: { backgroundColor: '#dd6b20', height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 12 },
   dialogActionBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 14 }
 });
