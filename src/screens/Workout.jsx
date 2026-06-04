@@ -20,8 +20,29 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   // Audio object persistence reference
   const soundObjectRef = useRef(null);
 
-  // Read weight unit preference dynamically from global application settings state
+  // Read weight unit preference dynamically
   const currentWeightUnit = appSettings?.weightUnit || 'lbs';
+
+  // Fallback Normalizer: Ensures 'theme' works perfectly whether it's a string ('light'/'dark') or an object
+  const isDark = typeof theme === 'string' ? theme !== 'light' : theme?.mode !== 'light';
+  
+  const activeTheme = typeof theme === 'object' && theme.background ? theme : {
+    background: isDark ? '#14171c' : '#f7fafc',
+    card: isDark ? '#1e232b' : '#ffffff',
+    border: isDark ? 'rgba(255, 255, 255, 0.05)' : '#e2e8f0',
+    text: isDark ? '#ffffff' : '#1a202c',
+    textMuted: isDark ? '#718096' : '#4a5568',
+  };
+
+  // Micro-theme refinements for special elements
+  const interactiveStyles = {
+    safetyBox: {
+      backgroundColor: isDark ? '#2c1a1a' : '#fff5f5',
+      borderColor: isDark ? 'transparent' : '#feb2b2',
+      borderWidth: isDark ? 0 : 1,
+    },
+    placeholderColor: isDark ? '#4a5568' : '#a0aec0',
+  };
 
   useEffect(() => {
     let interval = null;
@@ -29,12 +50,11 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       interval = setInterval(() => setTimer(t => t - 1), 1000);
     } else if (timer === 0 && isTimerRunning) {
       setIsTimerRunning(false);
-      triggerRestEndAlerts(); // Run alerts when countdown finishes
+      triggerRestEndAlerts();
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timer]);
 
-  // Clean up sound player on unmount to prevent memory leaks
   useEffect(() => {
     return () => {
       if (soundObjectRef.current) {
@@ -44,25 +64,21 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   }, []);
 
   const triggerRestEndAlerts = async () => {
-    // 1. Physical Haptic Alerts: Play a heavy double-pulse "Success" vibration
     try {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       console.log('Haptics not supported or available on this platform device context.');
     }
 
-    // 2. Audio Chime Notification Alerts
     try {
-      // Configure audio configuration mode to respect silent switch or intermix nicely
       await Audio.setAudioModeAsync({
         playsInSilentModeIOS: true,
         staysActiveInBackground: true,
         shouldRouteThroughEarpieceAndroid: false,
       });
 
-      // Load and play a high-quality native digital alert chime
       const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/sounds/timer-chime.mp3'), // Ensure asset matches step 3 below
+        require('../../assets/sounds/timer-chime.mp3'),
         { shouldPlay: true }
       );
       soundObjectRef.current = sound;
@@ -72,12 +88,11 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   };
 
   const triggerRestTimer = async () => {
-    // Give a light physical tick confirmation when tapping a completed set checkmark
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {}
 
-    setTimer(60); // 60 Second Rest Window Frame Target
+    setTimer(60);
     setIsTimerRunning(true);
   };
 
@@ -106,7 +121,6 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       }
     });
 
-    // Save completed session data to AsyncStorage for Analytics sync
     try {
       const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
       const existingHistoryJson = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
@@ -137,22 +151,22 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   };
 
   return (
-    <View style={[styles.masterContainer, { backgroundColor: theme.background }]}>
+    <View style={[styles.masterContainer, { backgroundColor: activeTheme.background }]}>
       <ScrollView style={styles.container}>
-        <Text style={[styles.dayTitle, { color: theme.text }]}>{day}'s Blueprint</Text>
-        <Text style={[styles.routineTitle, { color: theme.textMuted }]}>{routine.title} • {routine.type}</Text>
+        <Text style={[styles.dayTitle, { color: activeTheme.text }]}>{day}'s Blueprint</Text>
+        <Text style={[styles.routineTitle, { color: activeTheme.textMuted }]}>{routine.title} • {routine.type}</Text>
 
-        <View style={styles.safetyBox}>
+        <View style={[styles.safetyBox, interactiveStyles.safetyBox]}>
           <ShieldAlert color="#e53e3e" size={16} />
           <Text style={styles.safetyText}>Form Rule: Control weight metrics down. Do not slam plates.</Text>
         </View>
 
         {routine.exercises.map((ex) => (
-          <View key={ex.id} style={[styles.exerciseCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View key={ex.id} style={[styles.exerciseCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={[styles.exName, { color: theme.text }]}>{ex.name}</Text>
-                <Text style={[styles.exMeta, { color: theme.textMuted }]}>{ex.sets} Sets × {ex.reps} Reps | {ex.station}</Text>
+                <Text style={[styles.exName, { color: activeTheme.text }]}>{ex.name}</Text>
+                <Text style={[styles.exMeta, { color: activeTheme.textMuted }]}>{ex.sets} Sets × {ex.reps} Reps | {ex.station}</Text>
               </View>
               <TouchableOpacity onPress={() => setActiveInstructionId(activeInstructionId === ex.id ? null : ex.id)}>
                 <Info color="#dd6b20" size={22} />
@@ -160,26 +174,26 @@ export default function Workout({ route, navigation, theme, appSettings }) {
             </View>
 
             {activeInstructionId === ex.id && (
-              <View style={[styles.instructionDrawer, { backgroundColor: theme.background }]}>
-                <Text style={[styles.instructionText, { color: theme.text }]}>{ex.steps}</Text>
+              <View style={[styles.instructionDrawer, { backgroundColor: activeTheme.background }]}>
+                <Text style={[styles.instructionText, { color: activeTheme.text }]}>{ex.steps}</Text>
               </View>
             )}
 
             {Array.from({ length: ex.sets }).map((_, setIndex) => (
               <View key={setIndex} style={styles.logRow}>
-                <Text style={[styles.setNumber, { color: theme.text }]}>Set {setIndex + 1}</Text>
+                <Text style={[styles.setNumber, { color: activeTheme.text }]}>Set {setIndex + 1}</Text>
                 <TextInput 
                   placeholder={currentWeightUnit} 
-                  placeholderTextColor="#4a5568" 
+                  placeholderTextColor={interactiveStyles.placeholderColor} 
                   keyboardType="numeric"
-                  style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
                   onChangeText={(val) => handleInputChange(ex.id, setIndex, 'weight', val)}
                 />
                 <TextInput 
                   placeholder="reps" 
-                  placeholderTextColor="#4a5568" 
+                  placeholderTextColor={interactiveStyles.placeholderColor} 
                   keyboardType="numeric"
-                  style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
                   onChangeText={(val) => handleInputChange(ex.id, setIndex, 'reps', val)}
                 />
                 <TouchableOpacity style={styles.rowCheck} onPress={triggerRestTimer}>
@@ -197,17 +211,17 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       </ScrollView>
 
       {timer > 0 && (
-        <View style={[styles.floatingTimer, { backgroundColor: theme.card, borderColor: '#dd6b20' }]}>
+        <View style={[styles.floatingTimer, { backgroundColor: activeTheme.card, borderColor: '#dd6b20' }]}>
           <Play color="#dd6b20" size={18} />
-          <Text style={[styles.timerText, { color: theme.text }]}>Resting Window Countdown: {timer}s</Text>
+          <Text style={[styles.timerText, { color: activeTheme.text }]}>Resting Window Countdown: {timer}s</Text>
         </View>
       )}
 
       <Modal animationType="slide" transparent={true} visible={coachModalVisible}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: '#dd6b20' }]}>
-            <Text style={[styles.modalTitle, { color: theme.text }]}>🔥 Coach Promotion Evaluation</Text>
-            <Text style={[styles.modalBody, { color: theme.textMuted }]}>{coachMessage}</Text>
+          <View style={[styles.modalContent, { backgroundColor: activeTheme.card, borderColor: '#dd6b20' }]}>
+            <Text style={[styles.modalTitle, { color: activeTheme.text }]}>🔥 Coach Promotion Evaluation</Text>
+            <Text style={[styles.modalBody, { color: activeTheme.textMuted }]}>{coachMessage}</Text>
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => { setCoachModalVisible(false); navigation.navigate('Dashboard'); }}>
               <Text style={styles.modalCloseText}>Understood, Coach!</Text>
             </TouchableOpacity>
@@ -223,7 +237,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, marginTop: 40 },
   dayTitle: { fontSize: 24, fontWeight: 'bold' },
   routineTitle: { fontSize: 14, marginBottom: 12 },
-  safetyBox: { flexDirection: 'row', backgroundColor: '#2c1a1a', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 20 },
+  safetyBox: { flexDirection: 'row', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 20 },
   safetyText: { color: '#e53e3e', fontSize: 11, marginLeft: 8, fontWeight: '500' },
   exerciseCard: { borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },

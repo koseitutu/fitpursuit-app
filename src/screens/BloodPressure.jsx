@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 // Dual-Platform Capability Layer (Web Preview & Mobile Device)
 const isWeb = typeof document !== 'undefined';
-
 let View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, FlatList;
 let AsyncStorage;
 let Heart, Activity, Calendar, Plus, Trash2, Edit2, X, ChevronLeft, ChevronRight, Info;
 let ActivityIcon = Activity;
+
 if (isWeb) {
   // Web compatibility mock layer for browser rendering
   StyleSheet = {
@@ -49,13 +49,11 @@ if (isWeb) {
       {children}
     </div>
   );
-
   Text = ({ children, style, ...props }) => (
     <span style={{ boxSizing: 'border-box', ...StyleSheet.flatten(style) }} {...props}>
       {children}
     </span>
   );
-
   TextInput = ({ style, placeholderTextColor, onChangeText, value, ...props }) => (
     <input
       value={value}
@@ -69,7 +67,6 @@ if (isWeb) {
       {...props}
     />
   );
-
   TouchableOpacity = ({ children, style, onPress, ...props }) => (
     <button
       onClick={onPress}
@@ -89,7 +86,6 @@ if (isWeb) {
       {children}
     </button>
   );
-
   ScrollView = ({ children, style, contentContainerStyle, ...props }) => (
     <div
       style={{
@@ -117,7 +113,7 @@ if (isWeb) {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: transparent ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.75)',
+          backgroundColor: transparent ? 'rgba(0,0,0,0.8)' : '#14171c',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -139,13 +135,11 @@ if (isWeb) {
       Loading Diagnostic Feed...
     </div>
   );
-
   KeyboardAvoidingView = ({ children, style, ...props }) => (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, ...StyleSheet.flatten(style) }} {...props}>
       {children}
     </div>
   );
-
   Platform = { OS: 'web' };
 
   FlatList = ({ data, renderItem, keyExtractor, contentContainerStyle }) => (
@@ -157,7 +151,6 @@ if (isWeb) {
       ))}
     </div>
   );
-
   // localStorage fallback mock for web
   AsyncStorage = {
     getItem: async (key) => {
@@ -167,7 +160,6 @@ if (isWeb) {
       localStorage.setItem(key, value);
     }
   };
-
   // Inline styling / Unicode emoji replacements for Lucide icons in Browser
   Heart = ({ size, color }) => <span style={{ fontSize: size, color, display: 'inline-block' }}>❤️</span>;
   ActivityIcon = ({ size, color }) => <span style={{ fontSize: size, color, display: 'inline-block' }}>📈</span>;
@@ -179,7 +171,6 @@ if (isWeb) {
   ChevronLeft = ({ size, color }) => <span style={{ fontSize: size, color, fontWeight: 'bold', display: 'inline-block' }}>◀</span>;
   ChevronRight = ({ size, color }) => <span style={{ fontSize: size, color, fontWeight: 'bold', display: 'inline-block' }}>▶</span>;
   Info = ({ size, color }) => <span style={{ fontSize: size, color, display: 'inline-block' }}>ℹ️</span>;
-
 } else {
   // Mobile Native compilation environment (resolves dynamically to prevent Web esbuild checks)
   const rnModuleName = 'react-native';
@@ -215,15 +206,12 @@ if (isWeb) {
 }
 
 const BP_HISTORY_KEY = '@fitpursuit_bp_history';
-
 const getDaysInMonth = (year, month) => {
   return new Date(year, month + 1, 0).getDate();
 };
-
 const getFirstDayOfMonth = (year, month) => {
   return new Date(year, month, 1).getDay();
 };
-
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
@@ -232,35 +220,34 @@ const MONTH_NAMES = [
 export default function BloodPressureScreen({ theme }) {
   const isDark = theme !== 'light';
 
-  // Dynamic Theme Definitions
-  const currentThemeStyles = {
+  // Dynamic style engine to map light / dark values instantly
+  const themeStyles = {
     container: {
       backgroundColor: isDark ? '#14171c' : '#f7fafc',
     },
-    cardBackground: {
+    card: {
       backgroundColor: isDark ? '#1e232b' : '#ffffff',
       borderColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#e2e8f0',
     },
-    innerInputBackground: {
+    input: {
       backgroundColor: isDark ? '#14171c' : '#edf2f7',
       borderColor: isDark ? '#2d3748' : '#cbd5e0',
       color: isDark ? '#ffffff' : '#2d3748',
     },
-    mainText: {
+    titleText: {
       color: isDark ? '#ffffff' : '#1a202c',
     },
     subText: {
       color: isDark ? '#718096' : '#4a5568',
     },
-    mutedLabel: {
-      color: isDark ? '#a0aec0' : '#718096',
+    fieldLabel: {
+      color: isDark ? '#a0aec0' : '#4a5568',
     },
-    placeholderColor: isDark ? '#4a5568' : '#a0aec0',
+    placeholder: isDark ? '#4a5568' : '#a0aec0',
   };
 
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
-
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
@@ -309,22 +296,18 @@ export default function BloodPressureScreen({ theme }) {
     const s = parseInt(sys, 10);
     const d = parseInt(dia, 10);
     if (isNaN(s) || isNaN(d)) return { label: 'Unknown', color: '#a0aec0' };
-
     if (s > 180 || d > 120) return { label: 'Crisis', color: '#e53e3e' };
     if (s >= 140 || d >= 90) return { label: 'Stage 2', color: '#fc8181' };
     if ((s >= 130 && s <= 139) || (d >= 80 && d <= 89)) return { label: 'Stage 1', color: '#f6ad55' };
     if (s >= 120 && s <= 129 && d < 80) return { label: 'Elevated', color: '#f6e05e' };
     if (s < 120 && d < 80) return { label: 'Normal', color: '#48bb78' };
-    
     return { label: 'High', color: '#fc8181' };
   };
 
   const calculateAverages = () => {
     if (history.length === 0) return { sys: 0, dia: 0, pulse: 0, morningCount: 0, eveningCount: 0 };
-    
     let sysSum = 0, diaSum = 0, pulseSum = 0;
     let morningCount = 0, eveningCount = 0;
-
     history.forEach((item) => {
       sysSum += item.systolic;
       diaSum += item.diastolic;
@@ -332,7 +315,6 @@ export default function BloodPressureScreen({ theme }) {
       if (item.period === 'Morning') morningCount++;
       else eveningCount++;
     });
-
     return {
       sys: Math.round(sysSum / history.length),
       dia: Math.round(diaSum / history.length),
@@ -346,7 +328,6 @@ export default function BloodPressureScreen({ theme }) {
     const sysNum = parseInt(systolic, 10);
     const diaNum = parseInt(diastolic, 10);
     const pulseNum = parseInt(pulse, 10);
-
     if (isNaN(sysNum) || isNaN(diaNum) || isNaN(pulseNum)) {
       showStatus({ text: 'Please fill in all readings with valid numbers.', type: 'error' });
       return;
@@ -361,7 +342,6 @@ export default function BloodPressureScreen({ theme }) {
         period,
         date: selectedDate,
       };
-
       const updatedHistory = [newEntry, ...history].sort((a, b) => new Date(b.date) - new Date(a.date));
       await AsyncStorage.setItem(BP_HISTORY_KEY, JSON.stringify(updatedHistory));
       
@@ -410,7 +390,6 @@ export default function BloodPressureScreen({ theme }) {
         }
         return item;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
       await AsyncStorage.setItem(BP_HISTORY_KEY, JSON.stringify(updatedHistory));
       setHistory(updatedHistory);
       setEditModalVisible(false);
@@ -499,7 +478,7 @@ export default function BloodPressureScreen({ theme }) {
           onPress={() => handleSelectCalendarDay(day)}
           style={[styles.calendarDay, isSelected && styles.calendarDaySelected]}
         >
-          <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected, !isSelected && currentThemeStyles.mainText]}>
+          <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected]}>
             {day}
           </Text>
         </TouchableOpacity>
@@ -513,7 +492,7 @@ export default function BloodPressureScreen({ theme }) {
 
   if (loading) {
     return (
-      <View style={[styles.loadingContainer, currentThemeStyles.container]}>
+      <View style={[styles.loadingContainer, themeStyles.container]}>
         <ActivityIndicator size="large" color="#dd6b20" />
       </View>
     );
@@ -522,28 +501,28 @@ export default function BloodPressureScreen({ theme }) {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, currentThemeStyles.container]}
+      style={[styles.container, themeStyles.container]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         
         {/* Header Info */}
         <View style={styles.header}>
-          <Text style={[styles.title, currentThemeStyles.mainText]}>Blood Pressure</Text>
-          <Text style={[styles.subtitle, currentThemeStyles.subText]}>Daily cardiovascular tracking & insights</Text>
+          <Text style={[styles.title, themeStyles.titleText]}>Blood Pressure</Text>
+          <Text style={[styles.subtitle, themeStyles.subText]}>Daily cardiovascular tracking & insights</Text>
         </View>
 
         {/* BP Statistics Dashboard */}
         <View style={styles.dashboardContainer}>
           <View style={styles.cardRow}>
             {/* Average BP */}
-            <View style={[styles.statsCard, currentThemeStyles.cardBackground]}>
+            <View style={[styles.statsCard, themeStyles.card]}>
               <View style={styles.statsCardHeader}>
-                <Text style={[styles.miniCardLabel, currentThemeStyles.mutedLabel]}>Average BP</Text>
+                <Text style={styles.miniCardLabel}>Average BP</Text>
                 <Heart size={14} color="#e53e3e" />
               </View>
-              <Text style={[styles.statsCardValue, currentThemeStyles.mainText]}>
+              <Text style={[styles.statsCardValue, themeStyles.titleText]}>
                 {averages.sys > 0 ? `${averages.sys}/${averages.dia}` : '0/0'}
-                <Text style={[styles.statsUnit, currentThemeStyles.mutedLabel]}> mmHg</Text>
+                <Text style={styles.statsUnit}> mmHg</Text>
               </Text>
               <View style={styles.categoryBadgeContainer}>
                 {averages.sys > 0 && (
@@ -557,16 +536,16 @@ export default function BloodPressureScreen({ theme }) {
             </View>
 
             {/* Average Pulse */}
-            <View style={[styles.statsCard, currentThemeStyles.cardBackground]}>
+            <View style={[styles.statsCard, themeStyles.card]}>
               <View style={styles.statsCardHeader}>
-                <Text style={[styles.miniCardLabel, currentThemeStyles.mutedLabel]}>Avg Pulse</Text>
+                <Text style={styles.miniCardLabel}>Avg Pulse</Text>
                 <ActivityIcon size={14} color="#3182ce" />
               </View>
-              <Text style={[styles.statsCardValue, currentThemeStyles.mainText]}>
+              <Text style={[styles.statsCardValue, themeStyles.titleText]}>
                 {averages.pulse > 0 ? averages.pulse : '0'}
-                <Text style={[styles.statsUnit, currentThemeStyles.mutedLabel]}> BPM</Text>
+                <Text style={styles.statsUnit}> BPM</Text>
               </Text>
-              <Text style={[styles.periodBreakdownText, currentThemeStyles.mutedLabel]}>
+              <Text style={[styles.periodBreakdownText, themeStyles.mutedLabel]}>
                 AM: {averages.morningCount} | PM: {averages.eveningCount}
               </Text>
             </View>
@@ -574,17 +553,17 @@ export default function BloodPressureScreen({ theme }) {
         </View>
 
         {/* Input Form Box */}
-        <View style={[styles.formCard, currentThemeStyles.cardBackground]}>
-          <Text style={[styles.formTitle, currentThemeStyles.mainText]}>Record New Daily Reading</Text>
+        <View style={[styles.formCard, themeStyles.card]}>
+          <Text style={[styles.formTitle, themeStyles.titleText]}>Record New Daily Reading</Text>
           
           <View style={styles.inputGrid}>
             {/* Systolic */}
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Systolic (SYS)</Text>
+              <Text style={[styles.fieldLabel, themeStyles.fieldLabel]}>Systolic (SYS)</Text>
               <TextInput
-                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
+                style={[styles.formInput, themeStyles.input]}
                 placeholder="e.g. 120"
-                placeholderTextColor={currentThemeStyles.placeholderColor}
+                placeholderTextColor={themeStyles.placeholder}
                 value={systolic}
                 onChangeText={setSystolic}
               />
@@ -592,11 +571,11 @@ export default function BloodPressureScreen({ theme }) {
 
             {/* Diastolic */}
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Diastolic (DIA)</Text>
+              <Text style={[styles.fieldLabel, themeStyles.fieldLabel]}>Diastolic (DIA)</Text>
               <TextInput
-                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
+                style={[styles.formInput, themeStyles.input]}
                 placeholder="e.g. 80"
-                placeholderTextColor={currentThemeStyles.placeholderColor}
+                placeholderTextColor={themeStyles.placeholder}
                 value={diastolic}
                 onChangeText={setDiastolic}
               />
@@ -604,11 +583,11 @@ export default function BloodPressureScreen({ theme }) {
 
             {/* Pulse */}
             <View style={styles.formField}>
-              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Pulse (BPM)</Text>
+              <Text style={[styles.fieldLabel, themeStyles.fieldLabel]}>Pulse (BPM)</Text>
               <TextInput
-                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
+                style={[styles.formInput, themeStyles.input]}
                 placeholder="e.g. 72"
-                placeholderTextColor={currentThemeStyles.placeholderColor}
+                placeholderTextColor={themeStyles.placeholder}
                 value={pulse}
                 onChangeText={setPulse}
               />
@@ -618,25 +597,25 @@ export default function BloodPressureScreen({ theme }) {
           {/* Period Toggle & Calendar Button */}
           <View style={styles.metadataFormRow}>
             {/* Period selector */}
-            <View style={[styles.toggleGroup, currentThemeStyles.innerInputBackground]}>
+            <View style={[styles.toggleGroup, themeStyles.input]}>
               <TouchableOpacity
                 style={[styles.periodBtn, period === 'Morning' && styles.periodBtnActive]}
                 onPress={() => setPeriod('Morning')}
               >
-                <Text style={[styles.periodBtnText, period === 'Morning' && styles.periodBtnTextActive, period !== 'Morning' && currentThemeStyles.mutedLabel]}>Morning (AM)</Text>
+                <Text style={[styles.periodBtnText, period === 'Morning' && styles.periodBtnTextActive]}>Morning (AM)</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.periodBtn, period === 'Evening' && styles.periodBtnActive]}
                 onPress={() => setPeriod('Evening')}
               >
-                <Text style={[styles.periodBtnText, period === 'Evening' && styles.periodBtnTextActive, period !== 'Evening' && currentThemeStyles.mutedLabel]}>Evening (PM)</Text>
+                <Text style={[styles.periodBtnText, period === 'Evening' && styles.periodBtnTextActive]}>Evening (PM)</Text>
               </TouchableOpacity>
             </View>
 
             {/* Visual Calendar Picker Trigger */}
-            <TouchableOpacity style={[styles.calendarSelector, currentThemeStyles.innerInputBackground]} onPress={() => openCalendar('newLog')}>
+            <TouchableOpacity style={[styles.calendarSelector, themeStyles.input]} onPress={() => openCalendar('newLog')}>
               <Calendar size={15} color="#dd6b20" style={styles.calendarIcon} />
-              <Text style={[styles.calendarSelectorText, currentThemeStyles.mainText]}>{selectedDate}</Text>
+              <Text style={[styles.calendarSelectorText, themeStyles.titleText]}>{selectedDate}</Text>
             </TouchableOpacity>
           </View>
 
@@ -653,35 +632,35 @@ export default function BloodPressureScreen({ theme }) {
         </View>
 
         {/* History Timelines */}
-        <Text style={[styles.sectionHeader, currentThemeStyles.mainText]}>Reading History</Text>
+        <Text style={[styles.sectionHeader, themeStyles.titleText]}>Reading History</Text>
         
         {history.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Heart size={36} color={isDark ? "#4a5568" : "#cbd5e0"} />
-            <Text style={[styles.emptyText, currentThemeStyles.mutedLabel]}>No blood pressure records.</Text>
-            <Text style={[styles.emptySubText, currentThemeStyles.subText]}>Log your morning/evening numbers to map diagnostics.</Text>
+            <Heart size={36} color={isDark ? '#4a5568' : '#cbd5e0'} />
+            <Text style={[styles.emptyText, themeStyles.mutedLabel]}>No blood pressure records.</Text>
+            <Text style={[styles.emptySubText, themeStyles.subText]}>Log your morning/evening numbers to map diagnostics.</Text>
           </View>
         ) : (
           <View style={styles.listContainer}>
             {history.map((item) => {
               const category = getBPCategory(item.systolic, item.diastolic);
               return (
-                <View key={item.id} style={[styles.logRow, currentThemeStyles.cardBackground]}>
+                <View key={item.id} style={[styles.logRow, themeStyles.card]}>
                   {/* Left block info */}
                   <View style={styles.logMeta}>
-                    <Text style={[styles.logDate, currentThemeStyles.mainText] ?? {color: '#000000'}}>{item.date}</Text>
-                    <View style={[styles.periodBadge, currentThemeStyles.innerInputBackground]}>
-                      <Text style={[styles.periodBadgeText, currentThemeStyles.mutedLabel]}>{item.period}</Text>
+                    <Text style={[styles.logDate, themeStyles.titleText]}>{item.date}</Text>
+                    <View style={[styles.periodBadge, themeStyles.input]}>
+                      <Text style={[styles.periodBadgeText, themeStyles.mutedLabel]}>{item.period}</Text>
                     </View>
                   </View>
 
                   {/* Diagnostic stats */}
                   <View style={styles.logMetrics}>
-                    <Text style={[styles.logValues, currentThemeStyles.mainText]}>
+                    <Text style={[styles.logValues, themeStyles.titleText]}>
                       {item.systolic}/{item.diastolic}
-                      <Text style={[styles.logValUnit, currentThemeStyles.mutedLabel]}> mmHg</Text>
+                      <Text style={styles.logValUnit}> mmHg</Text>
                     </Text>
-                    <Text style={[styles.logPulse, currentThemeStyles.mutedLabel]}>💓 {item.pulse} BPM</Text>
+                    <Text style={[styles.logPulse, themeStyles.mutedLabel]}>💓 {item.pulse} BPM</Text>
                   </View>
 
                   {/* Status Indicator Bar */}
@@ -695,10 +674,10 @@ export default function BloodPressureScreen({ theme }) {
 
                   {/* Action buttons */}
                   <View style={styles.actionButtons}>
-                    <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.actionBtn, currentThemeStyles.innerInputBackground]}>
-                      <Edit2 size={13} color={isDark ? "#a0aec0" : "#4a5568"} />
+                    <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.actionBtn, themeStyles.input]}>
+                      <Edit2 size={13} color={isDark ? "#a0aec0" : "#718096"} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={[styles.actionBtn, currentThemeStyles.innerInputBackground]}>
+                    <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={[styles.actionBtn, themeStyles.input]}>
                       <Trash2 size={13} color="#fc8181" />
                     </TouchableOpacity>
                   </View>
@@ -709,30 +688,30 @@ export default function BloodPressureScreen({ theme }) {
         )}
       </ScrollView>
 
-      {/* 📅 CUSTOM INTERACTIVE CALENDAR DIALOG */}
+      {/* 📅 INTERACTIVE CALENDAR DIALOG */}
       <Modal visible={calendarVisible} transparent={true} animationType="fade" onRequestClose={() => setCalendarVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.calendarModalContent, currentThemeStyles.cardBackground]}>
+          <View style={[styles.calendarModalContent, themeStyles.card]}>
             
             {/* Month & Year Selection Navigation */}
             <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => handleCalendarMonthChange('prev')} style={[styles.arrowButton, currentThemeStyles.innerInputBackground]}>
-                <ChevronLeft size={20} color={isDark ? "#ffffff" : "#1a202c"} />
+              <TouchableOpacity onPress={() => handleCalendarMonthChange('prev')} style={[styles.arrowButton, themeStyles.input]}>
+                <ChevronLeft size={20} color={isDark ? "#ffffff" : "#2d3748"} />
               </TouchableOpacity>
               
-              <Text style={[styles.calendarMonthTitle, currentThemeStyles.mainText]}>
+              <Text style={[styles.calendarMonthTitle, themeStyles.titleText]}>
                 {MONTH_NAMES[currentCalendarMonth]} {currentCalendarYear}
               </Text>
               
-              <TouchableOpacity onPress={() => handleCalendarMonthChange('next')} style={[styles.arrowButton, currentThemeStyles.innerInputBackground]}>
-                <ChevronRight size={20} color={isDark ? "#ffffff" : "#1a202c"} />
+              <TouchableOpacity onPress={() => handleCalendarMonthChange('next')} style={[styles.arrowButton, themeStyles.input]}>
+                <ChevronRight size={20} color={isDark ? "#ffffff" : "#2d3748"} />
               </TouchableOpacity>
             </View>
 
             {/* Weekdays indicator grid */}
             <View style={styles.weekdaysHeader}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                <Text key={`weekday-${idx}`} style={[styles.weekdayText, currentThemeStyles.subText]}>{day}</Text>
+                <Text key={`weekday-${idx}`} style={[styles.weekdayText, themeStyles.subText]}>{day}</Text>
               ))}
             </View>
 
@@ -740,10 +719,10 @@ export default function BloodPressureScreen({ theme }) {
             {renderCalendarGrid()}
 
             <TouchableOpacity 
-              style={[styles.calendarCloseButton, currentThemeStyles.innerInputBackground]} 
+              style={[styles.calendarCloseButton, themeStyles.input]} 
               onPress={() => setCalendarVisible(false)}
             >
-              <Text style={[styles.calendarCloseButtonText, currentThemeStyles.mutedLabel]}>Close Calendar</Text>
+              <Text style={[styles.calendarCloseButtonText, themeStyles.mutedLabel]}>Close Calendar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -752,9 +731,9 @@ export default function BloodPressureScreen({ theme }) {
       {/* 📝 EDIT MODAL OVERLAY */}
       <Modal visible={editModalVisible} transparent={true} animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.editModalContentBody, currentThemeStyles.cardBackground]}>
+          <View style={[styles.editModalContentBody, themeStyles.card]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, currentThemeStyles.mainText]}>Edit Reading Entry</Text>
+              <Text style={[styles.modalTitle, themeStyles.titleText]}>Edit Reading Entry</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <X size={20} color={isDark ? "#a0aec0" : "#718096"} />
               </TouchableOpacity>
@@ -763,52 +742,52 @@ export default function BloodPressureScreen({ theme }) {
             <View style={styles.modalForm}>
               <View style={styles.editRowFields}>
                 <View style={styles.modalFieldHalf}>
-                  <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Systolic</Text>
+                  <Text style={[styles.modalLabel, themeStyles.fieldLabel]}>Systolic</Text>
                   <TextInput
-                    style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
+                    style={[styles.modalInput, themeStyles.input]}
                     value={editSystolic}
                     onChangeText={setEditSystolic}
                   />
                 </View>
 
                 <View style={styles.modalFieldHalf}>
-                  <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Diastolic</Text>
+                  <Text style={[styles.modalLabel, themeStyles.fieldLabel]}>Diastolic</Text>
                   <TextInput
-                    style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
+                    style={[styles.modalInput, themeStyles.input]}
                     value={editDiastolic}
                     onChangeText={setEditDiastolic}
                   />
                 </View>
               </View>
 
-              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Pulse (BPM)</Text>
+              <Text style={[styles.modalLabel, themeStyles.fieldLabel]}>Pulse (BPM)</Text>
               <TextInput
-                style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
+                style={[styles.modalInput, themeStyles.input]}
                 value={editPulse}
                 onChangeText={setEditPulse}
               />
 
-              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Period</Text>
-              <View style={[styles.toggleGroup, currentThemeStyles.innerInputBackground]}>
+              <Text style={[styles.modalLabel, themeStyles.fieldLabel]}>Period</Text>
+              <View style={[styles.toggleGroup, themeStyles.input]}>
                 <TouchableOpacity
                   style={[styles.periodBtn, editPeriod === 'Morning' && styles.periodBtnActive]}
                   onPress={() => setEditPeriod('Morning')}
                 >
-                  <Text style={[styles.periodBtnText, editPeriod === 'Morning' && styles.periodBtnTextActive, editPeriod !== 'Morning' && currentThemeStyles.mutedLabel]}>Morning (AM)</Text>
+                  <Text style={[styles.periodBtnText, editPeriod === 'Morning' && styles.periodBtnTextActive]}>Morning (AM)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.periodBtn, editPeriod === 'Evening' && styles.periodBtnActive]}
                   onPress={() => setEditPeriod('Evening')}
                 >
-                  <Text style={[styles.periodBtnText, editPeriod === 'Evening' && styles.periodBtnTextActive, editPeriod !== 'Evening' && currentThemeStyles.mutedLabel]}>Evening (PM)</Text>
+                  <Text style={[styles.periodBtnText, editPeriod === 'Evening' && styles.periodBtnTextActive]}>Evening (PM)</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Edit log calendar trigger */}
-              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Selected Date</Text>
-              <TouchableOpacity style={[styles.calendarSelector, currentThemeStyles.innerInputBackground]} onPress={() => openCalendar('editLog')}>
+              <Text style={[styles.modalLabel, themeStyles.fieldLabel]}>Selected Date</Text>
+              <TouchableOpacity style={[styles.calendarSelector, themeStyles.input]} onPress={() => openCalendar('editLog')}>
                 <Calendar size={15} color="#dd6b20" style={styles.calendarIcon} />
-                <Text style={[styles.calendarSelectorText, currentThemeStyles.mainText]}>{editDate}</Text>
+                <Text style={[styles.calendarSelectorText, themeStyles.titleText]}>{editDate}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.modalSaveButton} onPress={handleUpdateLog}>
@@ -886,6 +865,7 @@ const styles = StyleSheet.create({
   },
   miniCardLabel: {
     fontSize: 11,
+    color: '#718096',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
@@ -897,6 +877,7 @@ const styles = StyleSheet.create({
   statsUnit: {
     fontSize: 11,
     fontWeight: '600',
+    color: '#718096',
   },
   periodBreakdownText: {
     fontSize: 10,
@@ -985,6 +966,7 @@ const styles = StyleSheet.create({
   periodBtnText: {
     fontSize: 10,
     fontWeight: '700',
+    color: '#718096',
   },
   periodBtnTextActive: {
     color: '#ffffff',
@@ -1086,6 +1068,7 @@ const styles = StyleSheet.create({
   },
   logValUnit: {
     fontSize: 10,
+    color: '#718096',
     fontWeight: '600',
   },
   logPulse: {
@@ -1144,7 +1127,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',

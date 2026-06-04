@@ -16,6 +16,20 @@ import { User, Shield, Moon, Sun, Bell, SquareStack, Sliders } from 'lucide-reac
 const STORAGE_KEY = '@fitpursuit_profile';
 
 export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
+  // Fallback Normalizer: Dynamically protects the component regardless of how theme is supplied
+  const isDark = typeof theme === 'string' ? theme !== 'light' : theme?.mode !== 'light';
+  
+  const activeTheme = typeof theme === 'object' && theme.background ? theme : {
+    background: isDark ? '#14171c' : '#f7fafc',
+    card: isDark ? '#1e232b' : '#ffffff',
+    border: isDark ? 'rgba(255, 255, 255, 0.05)' : '#e2e8f0',
+    text: isDark ? '#ffffff' : '#1a202c',
+    textMuted: isDark ? '#718096' : '#4a5568',
+    mode: isDark ? 'dark' : 'light'
+  };
+
+  const placeholderColor = isDark ? '#4a5568' : '#a0aec0';
+
   // Local Profile Form States
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
@@ -61,12 +75,11 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
 
   const handleSaveProfile = async () => {
     try {
-      // Calculate height mathematically based on active unit layout
       let calculatedHeight = null;
       if (currentHeightUnit === 'ft-in') {
         const ft = parseInt(heightFeet, 10) || 0;
         const inch = parseInt(heightInches, 10) || 0;
-        calculatedHeight = (ft * 12) + inch || null; // Saved as total inches
+        calculatedHeight = (ft * 12) + inch || null;
       } else {
         calculatedHeight = heightCm ? parseFloat(heightCm) : null;
       }
@@ -112,43 +125,43 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.contentContainer}>
-      <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
+    <ScrollView style={[styles.container, { backgroundColor: activeTheme.background }]} contentContainerStyle={styles.contentContainer}>
+      <Text style={[styles.title, { color: activeTheme.text }]}>Settings</Text>
 
       {/* Profile Section */}
-      <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
         <View style={styles.sectionHeader}>
           <User size={18} color="#dd6b20" />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>User Profile</Text>
+          <Text style={[styles.sectionTitle, { color: activeTheme.text }]}>User Profile</Text>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>Display Name</Text>
+          <Text style={[styles.label, { color: activeTheme.textMuted }]}>Display Name</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+            style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
             value={name}
             onChangeText={setName}
             placeholder="Enter your name"
-            placeholderTextColor="#4a5568"
+            placeholderTextColor={placeholderColor}
           />
         </View>
 
         <View style={styles.inlineRow}>
           <View style={[styles.formGroup, { flex: 1 }]}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>Age</Text>
+            <Text style={[styles.label, { color: activeTheme.textMuted }]}>Age</Text>
             <TextInput
-              style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+              style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
               value={age}
               onChangeText={setAge}
               keyboardType="numeric"
               placeholder="Years"
-              placeholderTextColor="#4a5568"
+              placeholderTextColor={placeholderColor}
             />
           </View>
 
           {/* Dynamic Height Inputs Layout Split Block */}
           <View style={[styles.formGroup, { flex: 2 }]}>
-            <Text style={[styles.label, { color: theme.textMuted }]}>
+            <Text style={[styles.label, { color: activeTheme.textMuted }]}>
               Height ({currentHeightUnit === 'ft-in' ? 'ft / in' : 'cm'})
             </Text>
             
@@ -156,50 +169,50 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
               <View style={styles.splitRowContainer}>
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TextInput
-                    style={[styles.input, { flex: 1, backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                    style={[styles.input, { flex: 1, backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
                     value={heightFeet}
                     onChangeText={setHeightFeet}
                     keyboardType="numeric"
                     placeholder="Feet"
-                    placeholderTextColor="#4a5568"
+                    placeholderTextColor={placeholderColor}
                   />
-                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>ft</Text>
+                  <Text style={{ color: activeTheme.text, fontWeight: '700', fontSize: 13 }}>ft</Text>
                 </View>
                 
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <TextInput
-                    style={[styles.input, { flex: 1, backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                    style={[styles.input, { flex: 1, backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
                     value={heightInches}
                     onChangeText={setHeightInches}
                     keyboardType="numeric"
                     placeholder="Inches"
-                    placeholderTextColor="#4a5568"
+                    placeholderTextColor={placeholderColor}
                   />
-                  <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>in</Text>
+                  <Text style={{ color: activeTheme.text, fontWeight: '700', fontSize: 13 }}>in</Text>
                 </View>
               </View>
             ) : (
               <TextInput
-                style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
                 value={heightCm}
                 onChangeText={setHeightCm}
                 keyboardType="numeric"
                 placeholder="Height in cm"
-                placeholderTextColor="#4a5568"
+                placeholderTextColor={placeholderColor}
               />
             )}
           </View>
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: theme.textMuted }]}>Target Goal Weight ({currentWeightUnit})</Text>
+          <Text style={[styles.label, { color: activeTheme.textMuted }]}>Target Goal Weight ({currentWeightUnit})</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+            style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
             value={targetWeight}
             onChangeText={setTargetWeight}
             keyboardType="numeric"
             placeholder={`Target in ${currentWeightUnit}`}
-            placeholderTextColor="#4a5568"
+            placeholderTextColor={placeholderColor}
           />
         </View>
 
@@ -209,20 +222,20 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
       </View>
 
       {/* Preferences Section */}
-      <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
         <View style={styles.sectionHeader}>
           <SquareStack size={18} color="#dd6b20" />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Application Preferences</Text>
+          <Text style={[styles.sectionTitle, { color: activeTheme.text }]}>Application Preferences</Text>
         </View>
 
         {/* Theme Toggle Row */}
-        <View style={styles.settingRow}>
+        <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
-            {theme.mode === 'dark' ? <Moon size={16} color={theme.text} /> : <Sun size={16} color={theme.text} />}
-            <Text style={[styles.settingLabel, { color: theme.text }]}>Dark Mode Interface</Text>
+            {activeTheme.mode === 'dark' ? <Moon size={16} color={activeTheme.text} /> : <Sun size={16} color={activeTheme.text} />}
+            <Text style={[styles.settingLabel, { color: activeTheme.text }]}>Dark Mode Interface</Text>
           </View>
           <Switch
-            value={theme.mode === 'dark'}
+            value={activeTheme.mode === 'dark'}
             onValueChange={() => toggleTheme()}
             trackColor={{ false: '#718096', true: '#dd6b20' }}
             thumbColor={Platform.OS === 'android' ? '#ffffff' : undefined}
@@ -230,10 +243,10 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         </View>
 
         {/* Weight Units Toggle Row */}
-        <View style={styles.settingRow}>
+        <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
-            <Bell size={16} color={theme.text} />
-            <Text style={[styles.settingLabel, { color: theme.text }]}>Measurement Weight Units</Text>
+            <Bell size={16} color={activeTheme.text} />
+            <Text style={[styles.settingLabel, { color: activeTheme.text }]}>Measurement Weight Units</Text>
           </View>
           <TouchableOpacity style={styles.unitBadgeButton} onPress={toggleWeightUnit}>
             <Text style={styles.unitBadgeText}>{currentWeightUnit.toUpperCase()}</Text>
@@ -241,10 +254,10 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         </View>
 
         {/* Height Units Toggle Row */}
-        <View style={styles.settingRow}>
+        <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
-            <Sliders size={16} color={theme.text} />
-            <Text style={[styles.settingLabel, { color: theme.text }]}>Measurement Height Units</Text>
+            <Sliders size={16} color={activeTheme.text} />
+            <Text style={[styles.settingLabel, { color: activeTheme.text }]}>Measurement Height Units</Text>
           </View>
           <TouchableOpacity style={styles.unitBadgeButton} onPress={toggleHeightUnit}>
             <Text style={styles.unitBadgeText}>{currentHeightUnit === 'ft-in' ? 'FT/IN' : 'CM'}</Text>
@@ -253,12 +266,12 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
       </View>
 
       {/* Security Info Card */}
-      <View style={[styles.sectionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
         <View style={styles.sectionHeader}>
           <Shield size={18} color="#dd6b20" />
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>Data Privacy</Text>
+          <Text style={[styles.sectionTitle, { color: activeTheme.text }]}>Data Privacy</Text>
         </View>
-        <Text style={[styles.privacyDescription, { color: theme.textMuted }]}>
+        <Text style={[styles.privacyDescription, { color: activeTheme.textMuted }]}>
           FitPursuit uses secure on-device local caching engine systems (AsyncStorage) exclusively. Your personal vitals metrics and workout history blueprints are completely private and never uploaded to external servers.
         </Text>
       </View>
@@ -280,7 +293,7 @@ const styles = StyleSheet.create({
   splitRowContainer: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   saveButton: { backgroundColor: '#dd6b20', height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
-  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(113, 128, 150, 0.1)' },
+  settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   settingMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   settingLabel: { fontSize: 13, fontWeight: '600' },
   unitBadgeButton: { backgroundColor: '#dd6b20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
