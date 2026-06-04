@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, Modal } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Play, CheckCircle, Info, ShieldAlert } from 'lucide-react-native';
 import { WEEKLY_ROUTINE } from '../data/workouts';
 
@@ -42,7 +43,7 @@ export default function Workout({ route, navigation, theme, appSettings }) {
     }));
   };
 
-  const saveWorkout = () => {
+  const saveWorkout = async () => {
     let progressiveOverloadAchieved = [];
 
     routine.exercises.forEach(ex => {
@@ -56,6 +57,28 @@ export default function Workout({ route, navigation, theme, appSettings }) {
         }
       }
     });
+
+    // Save completed session data to AsyncStorage for Analytics sync
+    try {
+      const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
+      const existingHistoryJson = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
+      const currentHistory = existingHistoryJson ? JSON.parse(existingHistoryJson) : [];
+      
+      const newSessionRecord = {
+        id: Date.now().toString(),
+        date: new Date().toISOString().split('T')[0],
+        day: day,
+        routineTitle: routine.title,
+        exercisesCompleted: routine.exercises.map(ex => ({
+          name: ex.name,
+          sets: logs[ex.id] ? Object.values(logs[ex.id]) : []
+        }))
+      };
+
+      await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify([newSessionRecord, ...currentHistory]));
+    } catch (e) {
+      console.error("Failed to append workout session to log database history", e);
+    }
 
     if (progressiveOverloadAchieved.length > 0) {
       setCoachMessage(`Coach Tip: You absolutely crushed your final sets for: ${progressiveOverloadAchieved.join(', ')}! Next week, let's challenge ourselves—move the weight selector pin down by one plate.`);
@@ -98,7 +121,7 @@ export default function Workout({ route, navigation, theme, appSettings }) {
               <View key={setIndex} style={styles.logRow}>
                 <Text style={[styles.setNumber, { color: theme.text }]}>Set {setIndex + 1}</Text>
                 <TextInput 
-                  placeholder={currentWeightUnit} // Dynamic metric placeholder alignment string 
+                  placeholder={currentWeightUnit} 
                   placeholderTextColor="#4a5568" 
                   keyboardType="numeric"
                   style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
