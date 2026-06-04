@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Play, CheckCircle, Info, ShieldAlert } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { Audio } from 'expo-av';
 import { WEEKLY_ROUTINE } from '../data/workouts';
 
 export default function Workout({ route, navigation, theme, appSettings }) {
@@ -15,6 +17,9 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   const [coachModalVisible, setCoachModalVisible] = useState(false);
   const [coachMessage, setCoachMessage] = useState('');
 
+  // Audio object persistence reference
+  const soundObjectRef = useRef(null);
+
   // Read weight unit preference dynamically from global application settings state
   const currentWeightUnit = appSettings?.weightUnit || 'lbs';
 
@@ -22,14 +27,57 @@ export default function Workout({ route, navigation, theme, appSettings }) {
     let interval = null;
     if (isTimerRunning && timer > 0) {
       interval = setInterval(() => setTimer(t => t - 1), 1000);
-    } else if (timer === 0) {
+    } else if (timer === 0 && isTimerRunning) {
       setIsTimerRunning(false);
+      triggerRestEndAlerts(); // Run alerts when countdown finishes
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, timer]);
 
-  const triggerRestTimer = () => {
-    setTimer(60);
+  // Clean up sound player on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (soundObjectRef.current) {
+        soundObjectRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  const triggerRestEndAlerts = async () => {
+    // 1. Physical Haptic Alerts: Play a heavy double-pulse "Success" vibration
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.log('Haptics not supported or available on this platform device context.');
+    }
+
+    // 2. Audio Chime Notification Alerts
+    try {
+      // Configure audio configuration mode to respect silent switch or intermix nicely
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldRouteThroughEarpieceAndroid: false,
+      });
+
+      // Load and play a high-quality native digital alert chime
+      const { sound } = await Audio.Sound.createAsync(
+        require('../../assets/sounds/timer-chime.mp3'), // Ensure asset matches step 3 below
+        { shouldPlay: true }
+      );
+      soundObjectRef.current = sound;
+    } catch (error) {
+      console.log('Audio file play execution halted or audio asset skipped.', error);
+    }
+  };
+
+  const triggerRestTimer = async () => {
+    // Give a light physical tick confirmation when tapping a completed set checkmark
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {}
+
+    setTimer(60); // 60 Second Rest Window Frame Target
     setIsTimerRunning(true);
   };
 
@@ -135,7 +183,7 @@ export default function Workout({ route, navigation, theme, appSettings }) {
                   onChangeText={(val) => handleInputChange(ex.id, setIndex, 'reps', val)}
                 />
                 <TouchableOpacity style={styles.rowCheck} onPress={triggerRestTimer}>
-                  <CheckCircle color="#718096" size={20} />
+                  <CheckCircle color="#dd6b20" size={20} />
                 </TouchableOpacity>
               </View>
             ))}
