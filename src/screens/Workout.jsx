@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert,
 import { Play, CheckCircle, Info, ShieldAlert } from 'lucide-react-native';
 import { WEEKLY_ROUTINE } from '../data/workouts';
 
-export default function Workout({ route, navigation }) {
+export default function Workout({ route, navigation, theme, appSettings }) {
   const { day } = route.params || { day: 'Monday' };
   const routine = WEEKLY_ROUTINE[day];
 
@@ -13,6 +13,9 @@ export default function Workout({ route, navigation }) {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [coachModalVisible, setCoachModalVisible] = useState(false);
   const [coachMessage, setCoachMessage] = useState('');
+
+  // Read weight unit preference dynamically from global application settings state
+  const currentWeightUnit = appSettings?.weightUnit || 'lbs';
 
   useEffect(() => {
     let interval = null;
@@ -63,10 +66,10 @@ export default function Workout({ route, navigation }) {
   };
 
   return (
-    <View style={styles.masterContainer}>
+    <View style={[styles.masterContainer, { backgroundColor: theme.background }]}>
       <ScrollView style={styles.container}>
-        <Text style={styles.dayTitle}>{day}'s Blueprint</Text>
-        <Text style={styles.routineTitle}>{routine.title} • {routine.type}</Text>
+        <Text style={[styles.dayTitle, { color: theme.text }]}>{day}'s Blueprint</Text>
+        <Text style={[styles.routineTitle, { color: theme.textMuted }]}>{routine.title} • {routine.type}</Text>
 
         <View style={styles.safetyBox}>
           <ShieldAlert color="#e53e3e" size={16} />
@@ -74,11 +77,11 @@ export default function Workout({ route, navigation }) {
         </View>
 
         {routine.exercises.map((ex) => (
-          <View key={ex.id} style={styles.exerciseCard}>
+          <View key={ex.id} style={[styles.exerciseCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={styles.cardHeader}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.exName}>{ex.name}</Text>
-                <Text style={styles.exMeta}>{ex.sets} Sets × {ex.reps} Reps | {ex.station}</Text>
+                <Text style={[styles.exName, { color: theme.text }]}>{ex.name}</Text>
+                <Text style={[styles.exMeta, { color: theme.textMuted }]}>{ex.sets} Sets × {ex.reps} Reps | {ex.station}</Text>
               </View>
               <TouchableOpacity onPress={() => setActiveInstructionId(activeInstructionId === ex.id ? null : ex.id)}>
                 <Info color="#dd6b20" size={22} />
@@ -86,26 +89,26 @@ export default function Workout({ route, navigation }) {
             </View>
 
             {activeInstructionId === ex.id && (
-              <View style={styles.instructionDrawer}>
-                <Text style={styles.instructionText}>{ex.steps}</Text>
+              <View style={[styles.instructionDrawer, { backgroundColor: theme.background }]}>
+                <Text style={[styles.instructionText, { color: theme.text }]}>{ex.steps}</Text>
               </View>
             )}
 
             {Array.from({ length: ex.sets }).map((_, setIndex) => (
               <View key={setIndex} style={styles.logRow}>
-                <Text style={styles.setNumber}>Set {setIndex + 1}</Text>
+                <Text style={[styles.setNumber, { color: theme.text }]}>Set {setIndex + 1}</Text>
                 <TextInput 
-                  placeholder="lbs" 
+                  placeholder={currentWeightUnit} // Dynamic metric placeholder alignment string 
                   placeholderTextColor="#4a5568" 
                   keyboardType="numeric"
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
                   onChangeText={(val) => handleInputChange(ex.id, setIndex, 'weight', val)}
                 />
                 <TextInput 
                   placeholder="reps" 
                   placeholderTextColor="#4a5568" 
                   keyboardType="numeric"
-                  style={styles.input}
+                  style={[styles.input, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
                   onChangeText={(val) => handleInputChange(ex.id, setIndex, 'reps', val)}
                 />
                 <TouchableOpacity style={styles.rowCheck} onPress={triggerRestTimer}>
@@ -123,17 +126,17 @@ export default function Workout({ route, navigation }) {
       </ScrollView>
 
       {timer > 0 && (
-        <View style={styles.floatingTimer}>
+        <View style={[styles.floatingTimer, { backgroundColor: theme.card, borderColor: '#dd6b20' }]}>
           <Play color="#dd6b20" size={18} />
-          <Text style={styles.timerText}>Resting Window Countdown: {timer}s</Text>
+          <Text style={[styles.timerText, { color: theme.text }]}>Resting Window Countdown: {timer}s</Text>
         </View>
       )}
 
       <Modal animationType="slide" transparent={true} visible={coachModalVisible}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>🔥 Coach Promotion Evaluation</Text>
-            <Text style={styles.modalBody}>{coachMessage}</Text>
+          <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: '#dd6b20' }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>🔥 Coach Promotion Evaluation</Text>
+            <Text style={[styles.modalBody, { color: theme.textMuted }]}>{coachMessage}</Text>
             <TouchableOpacity style={styles.modalCloseBtn} onPress={() => { setCoachModalVisible(false); navigation.navigate('Dashboard'); }}>
               <Text style={styles.modalCloseText}>Understood, Coach!</Text>
             </TouchableOpacity>
@@ -145,30 +148,30 @@ export default function Workout({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  masterContainer: { flex: 1, backgroundColor: '#14171c' },
+  masterContainer: { flex: 1 },
   container: { flex: 1, padding: 20, marginTop: 40 },
-  dayTitle: { color: '#ffffff', fontSize: 24, fontWeight: 'bold' },
-  routineTitle: { color: '#718096', fontSize: 14, marginBottom: 12 },
+  dayTitle: { fontSize: 24, fontWeight: 'bold' },
+  routineTitle: { fontSize: 14, marginBottom: 12 },
   safetyBox: { flexDirection: 'row', backgroundColor: '#2c1a1a', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 20 },
   safetyText: { color: '#e53e3e', fontSize: 11, marginLeft: 8, fontWeight: '500' },
-  exerciseCard: { backgroundColor: '#1e232b', borderRadius: 12, padding: 16, marginBottom: 16 },
+  exerciseCard: { borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  exName: { color: '#ffffff', fontSize: 16, fontWeight: 'bold' },
-  exMeta: { color: '#718096', fontSize: 12, marginTop: 2 },
-  instructionDrawer: { backgroundColor: '#14171c', padding: 12, borderRadius: 8, marginBottom: 12 },
-  instructionText: { color: '#cbd5e0', fontSize: 12, lineHeight: 16 },
+  exName: { fontSize: 16, fontWeight: 'bold' },
+  exMeta: { fontSize: 12, marginTop: 2 },
+  instructionDrawer: { padding: 12, borderRadius: 8, marginBottom: 12 },
+  instructionText: { fontSize: 12, lineHeight: 16 },
   logRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  setNumber: { color: '#ffffff', width: '20%', fontSize: 13 },
-  input: { backgroundColor: '#14171c', color: '#ffffff', padding: 8, borderRadius: 6, width: '25%', textAlign: 'center', fontSize: 13 },
+  setNumber: { width: '20%', fontSize: 13 },
+  input: { padding: 8, borderRadius: 6, width: '25%', textAlign: 'center', fontSize: 13, borderWidth: 1 },
   rowCheck: { width: '15%', alignItems: 'center' },
   saveBtn: { backgroundColor: '#dd6b20', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 15 },
   saveBtnText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16 },
-  floatingTimer: { position: 'absolute', bottom: 30, left: 20, right: 20, backgroundColor: '#1e232b', padding: 16, borderRadius: 30, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderborderColor: '#dd6b20', borderWidth: 1 },
-  timerText: { color: '#ffffff', fontWeight: 'bold', marginLeft: 10 },
+  floatingTimer: { position: 'absolute', bottom: 30, left: 20, right: 20, padding: 16, borderRadius: 30, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  timerText: { fontWeight: 'bold', marginLeft: 10 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#1e232b', padding: 24, borderRadius: 16, width: '85%', borderborderColor: '#dd6b20', borderWidth: 1 },
-  modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
-  modalBody: { color: '#cbd5e0', fontSize: 14, lineHeight: 20, marginBottom: 20 },
+  modalContent: { padding: 24, borderRadius: 16, width: '85%', borderWidth: 1 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12 },
+  modalBody: { fontSize: 14, lineHeight: 20, marginBottom: 20 },
   modalCloseBtn: { backgroundColor: '#dd6b20', padding: 12, borderRadius: 8, alignItems: 'center' },
   modalCloseText: { color: '#ffffff', fontWeight: 'bold' }
 });
