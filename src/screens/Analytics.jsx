@@ -10,89 +10,119 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Scale, TrendingUp, TrendingDown, Trash2, Edit2, Plus, Calendar, X } from 'lucide-react-native';
+import { Scale, Trash2, Calendar, X, Dumbbell, ChevronRight } from 'lucide-react-native';
 
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
+const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
 
-// We accept the global app theme directly as a prop
-export default function Analytics({ theme }) {
+export default function Analytics({ theme, appSettings }) {
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('weight'); // 'weight' or 'workouts'
+  
+  // Storage Vectors
   const [profile, setProfile] = useState(null);
   const [history, setHistory] = useState([]);
+  const [workoutHistory, setWorkoutHistory] = useState([]);
   
-  // Form states for adding new log
+  // Weight Log Form states
   const [inputWeight, setInputWeight] = useState('');
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
   
-  // Edit Modal States
+  // Modals Configurations
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editWeight, setEditWeight] = useState('');
   const [editDate, setEditDate] = useState('');
-
-  // Status Alerts
   const [statusMessage, setStatusMessage] = useState(null);
 
+  // Sync Global Display Preference Units
+  const currentWeightUnit = appSettings?.weightUnit || 'lbs';
+
   useEffect(() => {
-    loadData();
+    loadAllHistoricalLogs();
   }, []);
 
-  const loadData = async () => {
+  const loadAllHistoricalLogs = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      const profileJson = await AsyncStorage.getItem(PROFILE_KEY);
-      const parsedProfile = profileJson ? JSON.parse(profileJson) : null;
-      setProfile(parsedProfile);
+      const storedProfile = await AsyncStorage.getItem(PROFILE_KEY);
+      const storedWeightHistory = await AsyncStorage.getItem(HISTORY_KEY);
+      const storedWorkoutHistory = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
 
-      const historyJson = await AsyncStorage.getItem(HISTORY_KEY);
-      const parsedHistory = historyJson ? JSON.parse(historyJson) : [];
+      if (storedProfile) setProfile(JSON.parse(storedProfile));
       
-      const sortedHistory = parsedHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
-      setHistory(sortedHistory);
+      if (storedWeightHistory) {
+        const parsedWeight = JSON.parse(storedWeightHistory);
+        setHistory(parsedWeight.sort((a, b) => new Date(b.date) - new Date(a.date)));
+      }
+      
+      if (storedWorkoutHistory) {
+        setWorkoutHistory(JSON.parse(storedWorkoutHistory));
+      }
     } catch (e) {
-      console.error('Failed to load logs history.', e);
+      console.error('Failed to parse logs repository values.', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const showStatus = (msg) => {
-    setStatusMessage(msg);
-    setTimeout(() => setStatusMessage(null), 3000);
-  };
-
-  // ➕ CREATE: Add New Weight Entry
-  const handleAddLog = async () => {
-    if (!inputWeight.trim() || isNaN(inputWeight)) {
-      showStatus({ text: 'Please enter a valid weight number.', type: 'error' });
+  const handleAddWeightLog = async () => {
+    if (!inputWeight || isNaN(inputWeight)) {
+      showStatusAlert('Please provide a numerical weight entry.');
       return;
     }
 
     try {
-      const newEntry = {
+      const newLog = {
         id: Date.now().toString(),
         weight: parseFloat(inputWeight),
-        date: inputDate || new Date().toISOString().split('T')[0],
+        date: inputDate || new Date().toISOString().split('T')[0]
       };
 
-      const updatedHistory = [newEntry, ...history].sort((a, b) => new Date(b.date) - new Date(a.date));
+      const updatedHistory = [newLog, ...history].sort((a, b) => new Date(b.date) - new Date(a.date));
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
-      
       setHistory(updatedHistory);
       setInputWeight('');
-      setInputDate(new Date().toISOString().split('T')[0]);
-      showStatus({ text: 'Weight logged successfully!', type: 'success' });
+      showStatusAlert('Weight log entry recorded!');
     } catch (e) {
-      console.error(e);
-      showStatus({ text: 'Error saving entry.', type: 'error' });
+      showStatusAlert('Failed to log weight entry.');
     }
   };
 
-  // 📝 UPDATE: Edit Existing Entry
+  const handleDeleteWeightLog = (id) => {
+    Alert.alert('Delete Log Entry', 'Are you sure you want to remove this historical weight calculation point?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = history.filter(item => item.id !== id);
+          await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+          setHistory(updated);
+        }
+      }
+    ]);
+  };
+
+  const handleDeleteWorkoutSession = (id) => {
+    Alert.alert('Delete Workout Log', 'Are you sure you want to clear this entire session blueprint entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove Record',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = workoutHistory.filter(item => item.id !== id);
+          await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
+          setWorkoutHistory(updated);
+        }
+      }
+    ]);
+  };
+
   const openEditModal = (item) => {
     setEditingItem(item);
     setEditWeight(item.weight.toString());
@@ -100,46 +130,30 @@ export default function Analytics({ theme }) {
     setEditModalVisible(true);
   };
 
-  const handleUpdateLog = async () => {
-    if (!editWeight.trim() || isNaN(editWeight)) {
-      showStatus({ text: 'Please enter a valid weight number.', type: 'error' });
-      return;
-    }
+  const handleUpdateWeightLog = async () => {
+    if (!editWeight || isNaN(editWeight)) return;
 
     try {
-      const updatedHistory = history.map((item) => {
+      const updated = history.map(item => {
         if (item.id === editingItem.id) {
           return { ...item, weight: parseFloat(editWeight), date: editDate };
         }
         return item;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
-      setHistory(updatedHistory);
+      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+      setHistory(updated);
       setEditModalVisible(false);
-      setEditingItem(null);
-      showStatus({ text: 'Log updated successfully!', type: 'success' });
+      showStatusAlert('Log details adjusted successfully!');
     } catch (e) {
       console.error(e);
     }
   };
 
-  // ❌ DELETE: Remove Entry
-  const handleDeleteLog = async (id) => {
-    try {
-      const updatedHistory = history.filter((item) => item.id !== id);
-      await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
-      setHistory(updatedHistory);
-      showStatus({ text: 'Log deleted.', type: 'success' });
-    } catch (e) {
-      console.error(e);
-    }
+  const showStatusAlert = (msg) => {
+    setStatusMessage(msg);
+    setTimeout(() => setStatusMessage(null), 3500);
   };
-
-  const unit = profile?.weightUnit || 'lbs';
-  const startingWeight = profile?.weight ? parseFloat(profile.weight) : null;
-  const currentWeight = history.length > 0 ? history[0].weight : startingWeight;
-  const totalChange = startingWeight && currentWeight ? currentWeight - startingWeight : 0;
 
   if (loading) {
     return (
@@ -150,160 +164,163 @@ export default function Analytics({ theme }) {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={[styles.container, { backgroundColor: theme.background }]}
-    >
-      {/* Header Info */}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.masterWrapper, { backgroundColor: theme.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Weight Logs</Text>
-        <Text style={[styles.subtitle, { color: theme.textMuted }]}>Track your body transformation stats</Text>
-      </View>
-
-      {/* Progress Dashboard Panel */}
-      <View style={styles.dashboardContainer}>
-        <View style={styles.cardRow}>
-          {/* Starting Weight */}
-          <View style={[styles.miniCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Starting</Text>
-            <Text style={[styles.miniCardValue, { color: theme.text }]}>
-              {startingWeight ? `${startingWeight} ${unit}` : 'Not set'}
-            </Text>
-          </View>
-
-          {/* Current Weight */}
-          <View style={[styles.miniCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Current</Text>
-            <Text style={[styles.miniCardValue, { color: theme.text }]}>
-              {currentWeight ? `${currentWeight} ${unit}` : 'Not set'}
-            </Text>
-          </View>
-
-          {/* Progress Net change */}
-          <View style={[
-            styles.miniCard, 
-            { backgroundColor: theme.card, borderColor: theme.border },
-            totalChange !== 0 && (totalChange < 0 ? styles.successCardBorder : styles.neutralCardBorder)
-          ]}>
-            <Text style={[styles.miniCardLabel, { color: theme.textMuted }]}>Progress</Text>
-            <View style={styles.trendRow}>
-              {totalChange !== 0 && (
-                totalChange < 0 ? <TrendingDown size={14} color="#48bb78" /> : <TrendingUp size={14} color="#e53e3e" />
-              )}
-              <Text style={[styles.miniCardValue, totalChange < 0 ? styles.greenText : totalChange > 0 ? styles.redText : { color: theme.text }]}>
-                {startingWeight && currentWeight
-                  ? `${totalChange > 0 ? '+' : ''}${totalChange.toFixed(1)} ${unit}`
-                  : '0.0'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Trigger Form Box: Log New Weight */}
-      <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.formTitle, { color: theme.text }]}>Record New Weight Entry</Text>
+        <Text style={[styles.mainTitle, { color: theme.text }]}>Analytics & Logs</Text>
         
-        <View style={styles.inputRow}>
-          <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
-            <Scale size={14} color={theme.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              placeholder={`Weight (${unit})`}
-              placeholderTextColor={theme.textMuted}
-              keyboardType="decimal-pad"
-              value={inputWeight}
-              onChangeText={setInputWeight}
-            />
-          </View>
-
-          <View style={[styles.inputContainer, { backgroundColor: theme.background, borderColor: theme.border }]}>
-            <Calendar size={14} color={theme.textMuted} style={styles.inputIcon} />
-            <TextInput
-              style={[styles.input, { color: theme.text }]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={theme.textMuted}
-              value={inputDate}
-              onChangeText={setInputDate}
-            />
-          </View>
-
-          <TouchableOpacity style={styles.addButton} onPress={handleAddLog}>
-            <Plus size={18} color="#ffffff" />
+        {/* Toggle Segments Controller Bar */}
+        <View style={[styles.segmentContainer, { backgroundColor: theme.card }]}>
+          <TouchableOpacity 
+            style={[styles.segmentBtn, activeTab === 'weight' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('weight')}
+          >
+            <Scale size={16} color={activeTab === 'weight' ? '#ffffff' : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: activeTab === 'weight' ? '#ffffff' : theme.textMuted }]}>Weight Logs</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.segmentBtn, activeTab === 'workouts' && styles.segmentBtnActive]} 
+            onPress={() => setActiveTab('workouts')}
+          >
+            <Dumbbell size={16} color={activeTab === 'workouts' ? '#ffffff' : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: activeTab === 'workouts' ? '#ffffff' : theme.textMuted }]}>Workout Logs</Text>
           </TouchableOpacity>
         </View>
-
-        {statusMessage && (
-          <Text style={[styles.statusMessage, statusMessage.type === 'error' ? styles.redText : styles.greenText]}>
-            {statusMessage.text}
-          </Text>
-        )}
       </View>
 
-      {/* Logs Timeline List */}
-      <Text style={[styles.sectionHeader, { color: theme.text }]}>Log History</Text>
-      
-      {history.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Scale size={32} color={theme.textMuted} />
-          <Text style={[styles.emptyText, { color: theme.textMuted }]}>No logs recorded yet.</Text>
-          <Text style={[styles.emptySubText, { color: theme.textMuted }]}>Enter your weight above to compile records.</Text>
+      {statusMessage && (
+        <View style={styles.statusBarNotification}>
+          <Text style={styles.statusBarNotificationText}>{statusMessage}</Text>
         </View>
-      ) : (
+      )}
+
+      {activeTab === 'weight' ? (
+        /* WEIGHT LOG TRACKING TAB LAYOUT ENGINE */
         <FlatList
           data={history}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={
+            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <Text style={[styles.cardHeading, { color: theme.text }]}>Quick-Log Scale Value</Text>
+              <View style={styles.inlineForm}>
+                <TextInput
+                  placeholder={`Weight (${currentWeightUnit})`}
+                  placeholderTextColor="#4a5568"
+                  keyboardType="numeric"
+                  value={inputWeight}
+                  onChangeText={setInputWeight}
+                  style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                />
+                <TextInput
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="#4a5568"
+                  value={inputDate}
+                  onChangeText={setInputDate}
+                  style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                />
+                <TouchableOpacity style={styles.appendRecordBtn} onPress={handleAddWeightLog}>
+                  <Text style={styles.appendRecordText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          }
           renderItem={({ item }) => (
             <View style={[styles.logRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <View style={styles.logInfo}>
-                <Calendar size={14} color="#dd6b20" style={styles.logIcon} />
-                <Text style={[styles.logDate, { color: theme.text }]}>{item.date}</Text>
-              </View>
-              <Text style={[styles.logWeight, { color: theme.text }]}>{item.weight} {unit}</Text>
-              
-              <View style={styles.actionButtons}>
-                <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.actionBtn, { backgroundColor: theme.background }]}>
-                  <Edit2 size={14} color={theme.textMuted} />
+              <Calendar size={16} color="#dd6b20" />
+              <Text style={[styles.logDateLabel, { color: theme.text }]}>{item.date}</Text>
+              <Text style={[styles.logWeightMetric, { color: theme.text }]}>{item.weight} {currentWeightUnit}</Text>
+              <View style={styles.rowControls}>
+                <TouchableOpacity style={styles.iconButtonAction} onPress={() => openEditModal(item)}>
+                  <Text style={{ color: '#dd6b20', fontSize: 12, fontWeight: '700' }}>Edit</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={[styles.actionBtn, { backgroundColor: theme.background }]}>
-                  <Trash2 size={14} color="#fc8181" />
+                <TouchableOpacity style={styles.iconButtonAction} onPress={() => handleDeleteWeightLog(item.id)}>
+                  <Trash2 size={16} color="#e53e3e" />
                 </TouchableOpacity>
               </View>
             </View>
           )}
+          ListEmptyComponent={
+            <View style={styles.blankSlateBox}>
+              <Scale size={32} color={theme.textMuted} />
+              <Text style={[styles.blankSlateText, { color: theme.text }]}>No metric tracking data exists.</Text>
+            </View>
+          }
+        />
+      ) : (
+        /* WORKOUT ROUTINE HISTORY TAB LAYOUT ENGINE */
+        <FlatList
+          data={workoutHistory}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContainer}
+          renderItem={({ item }) => (
+            <View style={[styles.workoutSessionCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={styles.workoutSessionHeader}>
+                <View>
+                  <Text style={[styles.workoutSessionTitle, { color: theme.text }]}>{item.routineTitle}</Text>
+                  <Text style={[styles.workoutSessionMeta, { color: theme.textMuted }]}>{item.day} • {item.date}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleDeleteWorkoutSession(item.id)}>
+                  <Trash2 size={18} color="#e53e3e" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Map nested Exercise sets items directly */}
+              <View style={styles.workoutNestedList}>
+                {item.exercisesCompleted.map((ex, index) => (
+                  <View key={index} style={styles.nestedExerciseItemRow}>
+                    <Text style={[styles.nestedExerciseName, { color: theme.text }]}>• {ex.name}</Text>
+                    <View style={styles.nestedSetsBadgeRow}>
+                      {ex.sets.map((set, sIdx) => (
+                        <Text key={sIdx} style={styles.setsBadgeItem}>
+                          S{sIdx + 1}: {set.weight || '0'}{currentWeightUnit} × {set.reps || '0'}
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View style={styles.blankSlateBox}>
+              <Dumbbell size={32} color={theme.textMuted} />
+              <Text style={[styles.blankSlateText, { color: theme.text }]}>No completed blueprints recorded yet.</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, textAlign: 'center', marginTop: 4 }}>Complete exercises inside the Trainer tab to populate history.</Text>
+            </View>
+          }
         />
       )}
 
-      {/* Edit Overlay Modal */}
-      <Modal visible={editModalVisible} transparent={true} animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.text }]}>Edit Log Entry</Text>
+      {/* Weight Editor Dialog Engine */}
+      <Modal animationType="fade" transparent={true} visible={editModalVisible}>
+        <View style={styles.dialogOverlay}>
+          <View style={[styles.dialogContent, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogHeading, { color: theme.text }]}>Adjust Record Context</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
                 <X size={20} color={theme.textMuted} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalForm}>
-              <Text style={[styles.modalLabel, { color: theme.textMuted }]}>Weight ({unit})</Text>
+            <View style={{ gap: 14, marginTop: 14 }}>
               <TextInput
-                style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                keyboardType="decimal-pad"
+                placeholder="Scale Weight value"
+                placeholderTextColor="#4a5568"
+                keyboardType="numeric"
                 value={editWeight}
                 onChangeText={setEditWeight}
+                style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, width: '100%' }]}
               />
-
-              <Text style={[styles.modalLabel, { color: theme.textMuted }]}>Date</Text>
               <TextInput
-                style={[styles.modalInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                placeholder="Date string reference"
+                placeholderTextColor="#4a5568"
                 value={editDate}
                 onChangeText={setEditDate}
+                style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, width: '100%' }]}
               />
-
-              <TouchableOpacity style={styles.modalSaveButton} onPress={handleUpdateLog}>
-                <Text style={styles.modalSaveButtonText}>Save Changes</Text>
+              <TouchableOpacity style={styles.dialogActionBtn} onPress={handleUpdateWeightLog}>
+                <Text style={styles.dialogActionBtnText}>Save Amendments</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -314,223 +331,43 @@ export default function Analytics({ theme }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 56,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-  },
-  subtitle: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  dashboardContainer: {
-    paddingHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  miniCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-  },
-  miniCardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  miniCardValue: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginTop: 6,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  successCardBorder: {
-    borderColor: 'rgba(72, 187, 120, 0.4)',
-  },
-  neutralCardBorder: {
-    borderColor: 'transparent',
-  },
-  greenText: {
-    color: '#48bb78',
-  },
-  redText: {
-    color: '#f56565',
-  },
-  formCard: {
-    marginHorizontal: 24,
-    padding: 18,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 20,
-  },
-  formTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-  inputContainer: {
-    flex: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-  },
-  inputIcon: {
-    marginRight: 6,
-  },
-  input: {
-    flex: 1,
-    height: 40,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  addButton: {
-    backgroundColor: '#dd6b20',
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  statusMessage: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: '800',
-    paddingHorizontal: 24,
-    marginBottom: 10,
-  },
-  listContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-  },
-  logRow: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-  },
-  logInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 2,
-  },
-  logIcon: {
-    marginRight: 8,
-  },
-  logDate: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  logWeight: {
-    flex: 1.5,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'right',
-    paddingRight: 12,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionBtn: {
-    padding: 6,
-    borderRadius: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 60,
-  },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 12,
-  },
-  emptySubText: {
-    fontSize: 11,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalContent: {
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  modalForm: {
-    gap: 12,
-  },
-  modalLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalSaveButton: {
-    backgroundColor: '#dd6b20',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  modalSaveButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+  masterWrapper: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { padding: 20, paddingTop: 50, gap: 12 },
+  mainTitle: { fontSize: 26, fontWeight: '800' },
+  segmentContainer: { flexDirection: 'row', borderRadius: 12, padding: 4 },
+  segmentBtn: { flex: 1, flexDirection: 'row', height: 38, borderRadius: 8, justifyContent: 'center', alignItems: 'center', gap: 6 },
+  segmentBtnActive: { backgroundColor: '#dd6b20' },
+  segmentText: { fontSize: 12, fontWeight: '700' },
+  listContainer: { padding: 20, paddingBottom: 100 },
+  card: { borderRadius: 16, padding: 16, borderHorizontalWidth: 1, borderVerticalWidth: 1, borderWidth: 1, marginBottom: 20 },
+  cardHeading: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  inlineForm: { flexDirection: 'row', gap: 10, height: 42 },
+  inputField: { flex: 1, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 13, fontWeight: '600' },
+  appendRecordBtn: { backgroundColor: '#dd6b20', paddingHorizontal: 16, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  appendRecordText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
+  logRow: { flexDirection: 'row', height: 50, borderRadius: 12, paddingHorizontal: 14, alignItems: 'center', marginBottom: 12, borderWidth: 1 },
+  logDateLabel: { marginLeft: 10, fontSize: 13, fontWeight: '600' },
+  logWeightMetric: { flex: 1, textAlign: 'right', paddingRight: 16, fontSize: 14, fontWeight: '700' },
+  rowControls: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  iconButtonAction: { padding: 4 },
+  blankSlateBox: { alignItems: 'center', paddingVertical: 60 },
+  blankSlateText: { fontSize: 14, fontWeight: '700', marginTop: 10 },
+  statusBarNotification: { backgroundColor: '#dd6b20', padding: 10, alignItems: 'center' },
+  statusBarNotificationText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
+  workoutSessionCard: { borderRadius: 16, padding: 16, borderWidth: 1, marginBottom: 16 },
+  workoutSessionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(113, 128, 150, 0.2)', paddingBottom: 8 },
+  workoutSessionTitle: { fontSize: 15, fontWeight: '700' },
+  workoutSessionMeta: { fontSize: 11, marginTop: 2 },
+  workoutNestedList: { gap: 10 },
+  nestedExerciseItemRow: { gap: 4 },
+  nestedExerciseName: { fontSize: 13, fontWeight: '600' },
+  nestedSetsBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 10 },
+  setsBadgeItem: { fontSize: 10, color: '#dd6b20', backgroundColor: 'rgba(221, 107, 32, 0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, fontWeight: '600' },
+  dialogOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
+  dialogContent: { borderRadius: 20, padding: 20, borderWidth: 1 },
+  dialogHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dialogHeading: { fontSize: 16, fontWeight: '700' },
+  dialogActionBtn: { backgroundColor: '#dd6b20', height: 44, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
+  dialogActionBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 14 }
 });
