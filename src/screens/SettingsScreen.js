@@ -223,7 +223,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
           </View>
           <Switch
             value={theme.mode === 'dark'}
-            onValueChange={toggleTheme}
+            onValueChange={() => toggleTheme()}
             trackColor={{ false: '#718096', true: '#dd6b20' }}
             thumbColor={Platform.OS === 'android' ? '#ffffff' : undefined}
           />

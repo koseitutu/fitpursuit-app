@@ -68,7 +68,7 @@ export default function App() {
 
   const toggleTheme = async () => {
     const nextTheme = themeMode === 'dark' ? 'light' : 'dark';
-    ThemeMode(nextTheme);
+    setThemeMode(nextTheme); // FIXED: Correct state setter pointer
     await AsyncStorage.setItem('@theme_mode', nextTheme);
   };
 
@@ -117,7 +117,7 @@ export default function App() {
           />
         </TouchableOpacity>
         
-        {/* 2. Exercise Trainer Tab (Changed from 'fitness' to 'barbell' for consistency) */}
+        {/* 2. Exercise Trainer Tab (Configured to Barbell for consistent design) */}
         <TouchableOpacity onPress={() => navigate('Workout', { day: 'Monday' })} style={styles.navItem}>
           <Ionicons 
             name="barbell" 
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   centerHomeButton: {
-    top: -12, // Lifts the button slightly above the tab bar frame
+    top: -12,
     justifyContent: 'center',
     alignItems: 'center',
     flex: 1,
@@ -192,6 +192,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 4.65,
-    elevation: 8, // Floating shadow effect on Android hardware
+    elevation: 8,
   }
 });
