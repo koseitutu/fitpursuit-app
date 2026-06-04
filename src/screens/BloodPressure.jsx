@@ -117,7 +117,7 @@ if (isWeb) {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: transparent ? 'rgba(0,0,0,0.8)' : '#14171c',
+          backgroundColor: transparent ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.75)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
@@ -229,7 +229,35 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-export default function BloodPressureScreen() {
+export default function BloodPressureScreen({ theme }) {
+  const isDark = theme !== 'light';
+
+  // Dynamic Theme Definitions
+  const currentThemeStyles = {
+    container: {
+      backgroundColor: isDark ? '#14171c' : '#f7fafc',
+    },
+    cardBackground: {
+      backgroundColor: isDark ? '#1e232b' : '#ffffff',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.03)' : '#e2e8f0',
+    },
+    innerInputBackground: {
+      backgroundColor: isDark ? '#14171c' : '#edf2f7',
+      borderColor: isDark ? '#2d3748' : '#cbd5e0',
+      color: isDark ? '#ffffff' : '#2d3748',
+    },
+    mainText: {
+      color: isDark ? '#ffffff' : '#1a202c',
+    },
+    subText: {
+      color: isDark ? '#718096' : '#4a5568',
+    },
+    mutedLabel: {
+      color: isDark ? '#a0aec0' : '#718096',
+    },
+    placeholderColor: isDark ? '#4a5568' : '#a0aec0',
+  };
+
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
 
@@ -471,7 +499,7 @@ export default function BloodPressureScreen() {
           onPress={() => handleSelectCalendarDay(day)}
           style={[styles.calendarDay, isSelected && styles.calendarDaySelected]}
         >
-          <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected]}>
+          <Text style={[styles.calendarDayText, isSelected && styles.calendarDayTextSelected, !isSelected && currentThemeStyles.mainText]}>
             {day}
           </Text>
         </TouchableOpacity>
@@ -485,7 +513,7 @@ export default function BloodPressureScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, currentThemeStyles.container]}>
         <ActivityIndicator size="large" color="#dd6b20" />
       </View>
     );
@@ -494,28 +522,28 @@ export default function BloodPressureScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
+      style={[styles.container, currentThemeStyles.container]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         
         {/* Header Info */}
         <View style={styles.header}>
-          <Text style={styles.title}>Blood Pressure</Text>
-          <Text style={styles.subtitle}>Daily cardiovascular tracking & insights</Text>
+          <Text style={[styles.title, currentThemeStyles.mainText]}>Blood Pressure</Text>
+          <Text style={[styles.subtitle, currentThemeStyles.subText]}>Daily cardiovascular tracking & insights</Text>
         </View>
 
         {/* BP Statistics Dashboard */}
         <View style={styles.dashboardContainer}>
           <View style={styles.cardRow}>
             {/* Average BP */}
-            <View style={styles.statsCard}>
+            <View style={[styles.statsCard, currentThemeStyles.cardBackground]}>
               <View style={styles.statsCardHeader}>
-                <Text style={styles.miniCardLabel}>Average BP</Text>
+                <Text style={[styles.miniCardLabel, currentThemeStyles.mutedLabel]}>Average BP</Text>
                 <Heart size={14} color="#e53e3e" />
               </View>
-              <Text style={styles.statsCardValue}>
+              <Text style={[styles.statsCardValue, currentThemeStyles.mainText]}>
                 {averages.sys > 0 ? `${averages.sys}/${averages.dia}` : '0/0'}
-                <Text style={styles.statsUnit}> mmHg</Text>
+                <Text style={[styles.statsUnit, currentThemeStyles.mutedLabel]}> mmHg</Text>
               </Text>
               <View style={styles.categoryBadgeContainer}>
                 {averages.sys > 0 && (
@@ -529,16 +557,16 @@ export default function BloodPressureScreen() {
             </View>
 
             {/* Average Pulse */}
-            <View style={styles.statsCard}>
+            <View style={[styles.statsCard, currentThemeStyles.cardBackground]}>
               <View style={styles.statsCardHeader}>
-                <Text style={styles.miniCardLabel}>Avg Pulse</Text>
+                <Text style={[styles.miniCardLabel, currentThemeStyles.mutedLabel]}>Avg Pulse</Text>
                 <ActivityIcon size={14} color="#3182ce" />
               </View>
-              <Text style={styles.statsCardValue}>
+              <Text style={[styles.statsCardValue, currentThemeStyles.mainText]}>
                 {averages.pulse > 0 ? averages.pulse : '0'}
-                <Text style={styles.statsUnit}> BPM</Text>
+                <Text style={[styles.statsUnit, currentThemeStyles.mutedLabel]}> BPM</Text>
               </Text>
-              <Text style={styles.periodBreakdownText}>
+              <Text style={[styles.periodBreakdownText, currentThemeStyles.mutedLabel]}>
                 AM: {averages.morningCount} | PM: {averages.eveningCount}
               </Text>
             </View>
@@ -546,17 +574,17 @@ export default function BloodPressureScreen() {
         </View>
 
         {/* Input Form Box */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>Record New Daily Reading</Text>
+        <View style={[styles.formCard, currentThemeStyles.cardBackground]}>
+          <Text style={[styles.formTitle, currentThemeStyles.mainText]}>Record New Daily Reading</Text>
           
           <View style={styles.inputGrid}>
             {/* Systolic */}
             <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Systolic (SYS)</Text>
+              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Systolic (SYS)</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
                 placeholder="e.g. 120"
-                placeholderTextColor="#4a5568"
+                placeholderTextColor={currentThemeStyles.placeholderColor}
                 value={systolic}
                 onChangeText={setSystolic}
               />
@@ -564,11 +592,11 @@ export default function BloodPressureScreen() {
 
             {/* Diastolic */}
             <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Diastolic (DIA)</Text>
+              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Diastolic (DIA)</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
                 placeholder="e.g. 80"
-                placeholderTextColor="#4a5568"
+                placeholderTextColor={currentThemeStyles.placeholderColor}
                 value={diastolic}
                 onChangeText={setDiastolic}
               />
@@ -576,11 +604,11 @@ export default function BloodPressureScreen() {
 
             {/* Pulse */}
             <View style={styles.formField}>
-              <Text style={styles.fieldLabel}>Pulse (BPM)</Text>
+              <Text style={[styles.fieldLabel, currentThemeStyles.mutedLabel]}>Pulse (BPM)</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, currentThemeStyles.innerInputBackground]}
                 placeholder="e.g. 72"
-                placeholderTextColor="#4a5568"
+                placeholderTextColor={currentThemeStyles.placeholderColor}
                 value={pulse}
                 onChangeText={setPulse}
               />
@@ -590,25 +618,25 @@ export default function BloodPressureScreen() {
           {/* Period Toggle & Calendar Button */}
           <View style={styles.metadataFormRow}>
             {/* Period selector */}
-            <View style={styles.toggleGroup}>
+            <View style={[styles.toggleGroup, currentThemeStyles.innerInputBackground]}>
               <TouchableOpacity
                 style={[styles.periodBtn, period === 'Morning' && styles.periodBtnActive]}
                 onPress={() => setPeriod('Morning')}
               >
-                <Text style={[styles.periodBtnText, period === 'Morning' && styles.periodBtnTextActive]}>Morning (AM)</Text>
+                <Text style={[styles.periodBtnText, period === 'Morning' && styles.periodBtnTextActive, period !== 'Morning' && currentThemeStyles.mutedLabel]}>Morning (AM)</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.periodBtn, period === 'Evening' && styles.periodBtnActive]}
                 onPress={() => setPeriod('Evening')}
               >
-                <Text style={[styles.periodBtnText, period === 'Evening' && styles.periodBtnTextActive]}>Evening (PM)</Text>
+                <Text style={[styles.periodBtnText, period === 'Evening' && styles.periodBtnTextActive, period !== 'Evening' && currentThemeStyles.mutedLabel]}>Evening (PM)</Text>
               </TouchableOpacity>
             </View>
 
             {/* Visual Calendar Picker Trigger */}
-            <TouchableOpacity style={styles.calendarSelector} onPress={() => openCalendar('newLog')}>
+            <TouchableOpacity style={[styles.calendarSelector, currentThemeStyles.innerInputBackground]} onPress={() => openCalendar('newLog')}>
               <Calendar size={15} color="#dd6b20" style={styles.calendarIcon} />
-              <Text style={styles.calendarSelectorText}>{selectedDate}</Text>
+              <Text style={[styles.calendarSelectorText, currentThemeStyles.mainText]}>{selectedDate}</Text>
             </TouchableOpacity>
           </View>
 
@@ -625,35 +653,35 @@ export default function BloodPressureScreen() {
         </View>
 
         {/* History Timelines */}
-        <Text style={styles.sectionHeader}>Reading History</Text>
+        <Text style={[styles.sectionHeader, currentThemeStyles.mainText]}>Reading History</Text>
         
         {history.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Heart size={36} color="#4a5568" />
-            <Text style={styles.emptyText}>No blood pressure records.</Text>
-            <Text style={styles.emptySubText}>Log your morning/evening numbers to map diagnostics.</Text>
+            <Heart size={36} color={isDark ? "#4a5568" : "#cbd5e0"} />
+            <Text style={[styles.emptyText, currentThemeStyles.mutedLabel]}>No blood pressure records.</Text>
+            <Text style={[styles.emptySubText, currentThemeStyles.subText]}>Log your morning/evening numbers to map diagnostics.</Text>
           </View>
         ) : (
           <View style={styles.listContainer}>
             {history.map((item) => {
               const category = getBPCategory(item.systolic, item.diastolic);
               return (
-                <View key={item.id} style={styles.logRow}>
+                <View key={item.id} style={[styles.logRow, currentThemeStyles.cardBackground]}>
                   {/* Left block info */}
                   <View style={styles.logMeta}>
-                    <Text style={styles.logDate}>{item.date}</Text>
-                    <View style={styles.periodBadge}>
-                      <Text style={styles.periodBadgeText}>{item.period}</Text>
+                    <Text style={[styles.logDate, currentThemeStyles.mainText] ?? {color: '#000000'}}>{item.date}</Text>
+                    <View style={[styles.periodBadge, currentThemeStyles.innerInputBackground]}>
+                      <Text style={[styles.periodBadgeText, currentThemeStyles.mutedLabel]}>{item.period}</Text>
                     </View>
                   </View>
 
                   {/* Diagnostic stats */}
                   <View style={styles.logMetrics}>
-                    <Text style={styles.logValues}>
+                    <Text style={[styles.logValues, currentThemeStyles.mainText]}>
                       {item.systolic}/{item.diastolic}
-                      <Text style={styles.logValUnit}> mmHg</Text>
+                      <Text style={[styles.logValUnit, currentThemeStyles.mutedLabel]}> mmHg</Text>
                     </Text>
-                    <Text style={styles.logPulse}>💓 {item.pulse} BPM</Text>
+                    <Text style={[styles.logPulse, currentThemeStyles.mutedLabel]}>💓 {item.pulse} BPM</Text>
                   </View>
 
                   {/* Status Indicator Bar */}
@@ -667,10 +695,10 @@ export default function BloodPressureScreen() {
 
                   {/* Action buttons */}
                   <View style={styles.actionButtons}>
-                    <TouchableOpacity onPress={() => openEditModal(item)} style={styles.actionBtn}>
-                      <Edit2 size={13} color="#a0aec0" />
+                    <TouchableOpacity onPress={() => openEditModal(item)} style={[styles.actionBtn, currentThemeStyles.innerInputBackground]}>
+                      <Edit2 size={13} color={isDark ? "#a0aec0" : "#4a5568"} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={styles.actionBtn}>
+                    <TouchableOpacity onPress={() => handleDeleteLog(item.id)} style={[styles.actionBtn, currentThemeStyles.innerInputBackground]}>
                       <Trash2 size={13} color="#fc8181" />
                     </TouchableOpacity>
                   </View>
@@ -684,27 +712,27 @@ export default function BloodPressureScreen() {
       {/* 📅 CUSTOM INTERACTIVE CALENDAR DIALOG */}
       <Modal visible={calendarVisible} transparent={true} animationType="fade" onRequestClose={() => setCalendarVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.calendarModalContent}>
+          <View style={[styles.calendarModalContent, currentThemeStyles.cardBackground]}>
             
             {/* Month & Year Selection Navigation */}
             <View style={styles.calendarHeader}>
-              <TouchableOpacity onPress={() => handleCalendarMonthChange('prev')} style={styles.arrowButton}>
-                <ChevronLeft size={20} color="#ffffff" />
+              <TouchableOpacity onPress={() => handleCalendarMonthChange('prev')} style={[styles.arrowButton, currentThemeStyles.innerInputBackground]}>
+                <ChevronLeft size={20} color={isDark ? "#ffffff" : "#1a202c"} />
               </TouchableOpacity>
               
-              <Text style={styles.calendarMonthTitle}>
+              <Text style={[styles.calendarMonthTitle, currentThemeStyles.mainText]}>
                 {MONTH_NAMES[currentCalendarMonth]} {currentCalendarYear}
               </Text>
               
-              <TouchableOpacity onPress={() => handleCalendarMonthChange('next')} style={styles.arrowButton}>
-                <ChevronRight size={20} color="#ffffff" />
+              <TouchableOpacity onPress={() => handleCalendarMonthChange('next')} style={[styles.arrowButton, currentThemeStyles.innerInputBackground]}>
+                <ChevronRight size={20} color={isDark ? "#ffffff" : "#1a202c"} />
               </TouchableOpacity>
             </View>
 
             {/* Weekdays indicator grid */}
             <View style={styles.weekdaysHeader}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                <Text key={`weekday-${idx}`} style={styles.weekdayText}>{day}</Text>
+                <Text key={`weekday-${idx}`} style={[styles.weekdayText, currentThemeStyles.subText]}>{day}</Text>
               ))}
             </View>
 
@@ -712,10 +740,10 @@ export default function BloodPressureScreen() {
             {renderCalendarGrid()}
 
             <TouchableOpacity 
-              style={styles.calendarCloseButton} 
+              style={[styles.calendarCloseButton, currentThemeStyles.innerInputBackground]} 
               onPress={() => setCalendarVisible(false)}
             >
-              <Text style={styles.calendarCloseButtonText}>Close Calendar</Text>
+              <Text style={[styles.calendarCloseButtonText, currentThemeStyles.mutedLabel]}>Close Calendar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -724,63 +752,63 @@ export default function BloodPressureScreen() {
       {/* 📝 EDIT MODAL OVERLAY */}
       <Modal visible={editModalVisible} transparent={true} animationType="slide" onRequestClose={() => setEditModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.editModalContentBody}>
+          <View style={[styles.editModalContentBody, currentThemeStyles.cardBackground]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Reading Entry</Text>
+              <Text style={[styles.modalTitle, currentThemeStyles.mainText]}>Edit Reading Entry</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <X size={20} color="#a0aec0" />
+                <X size={20} color={isDark ? "#a0aec0" : "#718096"} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalForm}>
               <View style={styles.editRowFields}>
                 <View style={styles.modalFieldHalf}>
-                  <Text style={styles.modalLabel}>Systolic</Text>
+                  <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Systolic</Text>
                   <TextInput
-                    style={styles.modalInput}
+                    style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
                     value={editSystolic}
                     onChangeText={setEditSystolic}
                   />
                 </View>
 
                 <View style={styles.modalFieldHalf}>
-                  <Text style={styles.modalLabel}>Diastolic</Text>
+                  <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Diastolic</Text>
                   <TextInput
-                    style={styles.modalInput}
+                    style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
                     value={editDiastolic}
                     onChangeText={setEditDiastolic}
                   />
                 </View>
               </View>
 
-              <Text style={styles.modalLabel}>Pulse (BPM)</Text>
+              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Pulse (BPM)</Text>
               <TextInput
-                style={styles.modalInput}
+                style={[styles.modalInput, currentThemeStyles.innerInputBackground]}
                 value={editPulse}
                 onChangeText={setEditPulse}
               />
 
-              <Text style={styles.modalLabel}>Period</Text>
-              <View style={styles.toggleGroup}>
+              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Period</Text>
+              <View style={[styles.toggleGroup, currentThemeStyles.innerInputBackground]}>
                 <TouchableOpacity
                   style={[styles.periodBtn, editPeriod === 'Morning' && styles.periodBtnActive]}
                   onPress={() => setEditPeriod('Morning')}
                 >
-                  <Text style={[styles.periodBtnText, editPeriod === 'Morning' && styles.periodBtnTextActive]}>Morning (AM)</Text>
+                  <Text style={[styles.periodBtnText, editPeriod === 'Morning' && styles.periodBtnTextActive, editPeriod !== 'Morning' && currentThemeStyles.mutedLabel]}>Morning (AM)</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.periodBtn, editPeriod === 'Evening' && styles.periodBtnActive]}
                   onPress={() => setEditPeriod('Evening')}
                 >
-                  <Text style={[styles.periodBtnText, editPeriod === 'Evening' && styles.periodBtnTextActive]}>Evening (PM)</Text>
+                  <Text style={[styles.periodBtnText, editPeriod === 'Evening' && styles.periodBtnTextActive, editPeriod !== 'Evening' && currentThemeStyles.mutedLabel]}>Evening (PM)</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Edit log calendar trigger */}
-              <Text style={styles.modalLabel}>Selected Date</Text>
-              <TouchableOpacity style={styles.calendarSelector} onPress={() => openCalendar('editLog')}>
+              <Text style={[styles.modalLabel, currentThemeStyles.mutedLabel]}>Selected Date</Text>
+              <TouchableOpacity style={[styles.calendarSelector, currentThemeStyles.innerInputBackground]} onPress={() => openCalendar('editLog')}>
                 <Calendar size={15} color="#dd6b20" style={styles.calendarIcon} />
-                <Text style={styles.calendarSelectorText}>{editDate}</Text>
+                <Text style={[styles.calendarSelectorText, currentThemeStyles.mainText]}>{editDate}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.modalSaveButton} onPress={handleUpdateLog}>
@@ -798,7 +826,6 @@ export default function BloodPressureScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#14171c',
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
@@ -806,7 +833,6 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#14171c',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -825,11 +851,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#ffffff',
   },
   subtitle: {
     fontSize: 14,
-    color: '#718096',
     marginTop: 4,
   },
   dashboardContainer: {
@@ -847,11 +871,9 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     flex: 1,
-    backgroundColor: '#1e232b',
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
     display: 'flex',
     flexDirection: 'column',
   },
@@ -864,24 +886,20 @@ const styles = StyleSheet.create({
   },
   miniCardLabel: {
     fontSize: 11,
-    color: '#718096',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   statsCardValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#ffffff',
     marginTop: 6,
   },
   statsUnit: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#718096',
   },
   periodBreakdownText: {
     fontSize: 10,
-    color: '#a0aec0',
     fontWeight: '600',
     marginTop: 8,
   },
@@ -901,12 +919,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   formCard: {
-    backgroundColor: '#1e232b',
     marginHorizontal: 24,
     padding: 20,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.03)',
     marginBottom: 24,
     display: 'flex',
     flexDirection: 'column',
@@ -914,7 +930,6 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ffffff',
     marginBottom: 16,
   },
   inputGrid: {
@@ -932,16 +947,12 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#a0aec0',
   },
   formInput: {
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 12,
     height: 44,
     paddingHorizontal: 12,
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
@@ -958,7 +969,6 @@ const styles = StyleSheet.create({
   },
   toggleGroup: {
     flexDirection: 'row',
-    backgroundColor: '#14171c',
     borderRadius: 10,
     padding: 3,
     display: 'flex',
@@ -975,7 +985,6 @@ const styles = StyleSheet.create({
   periodBtnText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#718096',
   },
   periodBtnTextActive: {
     color: '#ffffff',
@@ -983,9 +992,7 @@ const styles = StyleSheet.create({
   calendarSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -995,7 +1002,6 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   calendarSelectorText: {
-    color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1029,7 +1035,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
     paddingHorizontal: 24,
     marginBottom: 12,
   },
@@ -1041,12 +1046,10 @@ const styles = StyleSheet.create({
   },
   logRow: {
     flexDirection: 'row',
-    backgroundColor: '#1e232b',
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.02)',
     display: 'flex',
     width: '100%',
   },
@@ -1057,12 +1060,10 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   logDate: {
-    color: '#e2e8f0',
     fontSize: 13,
     fontWeight: '700',
   },
   periodBadge: {
-    backgroundColor: '#14171c',
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -1070,7 +1071,6 @@ const styles = StyleSheet.create({
     display: 'flex',
   },
   periodBadgeText: {
-    color: '#a0aec0',
     fontSize: 9,
     fontWeight: '700',
   },
@@ -1081,17 +1081,14 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   logValues: {
-    color: '#ffffff',
     fontSize: 15,
     fontWeight: '800',
   },
   logValUnit: {
     fontSize: 10,
-    color: '#718096',
     fontWeight: '600',
   },
   logPulse: {
-    color: '#a0aec0',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
@@ -1120,7 +1117,6 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     padding: 8,
-    backgroundColor: '#14171c',
     borderRadius: 10,
     display: 'flex',
   },
@@ -1132,13 +1128,11 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   emptyText: {
-    color: '#a0aec0',
     fontSize: 14,
     fontWeight: '700',
     marginTop: 12,
   },
   emptySubText: {
-    color: '#718096',
     fontSize: 11,
     marginTop: 4,
     textAlign: 'center',
@@ -1150,7 +1144,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1159,11 +1153,9 @@ const styles = StyleSheet.create({
     zIndex: 99999,
   },
   editModalContentBody: {
-    backgroundColor: '#1e232b',
     borderRadius: 24,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#2d3748',
     display: 'flex',
     flexDirection: 'column',
     width: '100%',
@@ -1180,7 +1172,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#ffffff',
   },
   modalForm: {
     gap: 14,
@@ -1203,15 +1194,11 @@ const styles = StyleSheet.create({
   modalLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#a0aec0',
   },
   modalInput: {
-    backgroundColor: '#14171c',
     borderWidth: 1,
-    borderColor: '#2d3748',
     borderRadius: 12,
     padding: 12,
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '600',
     width: '100%',
@@ -1233,11 +1220,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   calendarModalContent: {
-    backgroundColor: '#1e232b',
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#2d3748',
     alignItems: 'center',
     display: 'flex',
     flexDirection: 'column',
@@ -1256,14 +1241,12 @@ const styles = StyleSheet.create({
   },
   arrowButton: {
     padding: 8,
-    backgroundColor: '#14171c',
     borderRadius: 10,
     display: 'flex',
   },
   calendarMonthTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#ffffff',
   },
   weekdaysHeader: {
     flexDirection: 'row',
@@ -1275,7 +1258,6 @@ const styles = StyleSheet.create({
   weekdayText: {
     width: '14%',
     textAlign: 'center',
-    color: '#718096',
     fontWeight: '700',
     fontSize: 11,
   },
@@ -1314,7 +1296,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#14171c',
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
@@ -1322,7 +1303,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   calendarCloseButtonText: {
-    color: '#a0aec0',
     fontWeight: '700',
     fontSize: 13,
   },
