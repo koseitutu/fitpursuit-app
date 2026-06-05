@@ -21,7 +21,8 @@ import { LineChart } from 'react-native-chart-kit';
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
 const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
-const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history'; // Internal tracking vector fallback fallback
+const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history';
+const BP_SCREEN_HISTORY_KEY = '@fitpursuit_bp_history';
 
 export default function Analytics({ theme, appSettings, navigation }) {
   const [loading, setLoading] = useState(true);
@@ -32,19 +33,17 @@ export default function Analytics({ theme, appSettings, navigation }) {
   const [history, setHistory] = useState([]);
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [vitalsHistory, setVitalsHistory] = useState([]);
+
   // Weight Log Form states
   const [inputWeight, setInputWeight] = useState('');
   const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
-  // Vitals Log Form States
-  const [inputSystolic, setInputSystolic] = useState('');
-  const [inputDiastolic, setInputDiastolic] = useState('');
-  const [inputBpm, setInputBpm] = useState('');
-  const [vitalsDate, setVitalsDate] = useState(new Date().toISOString().split('T')[0]);
+
   // Weight Edit Modal States
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editWeight, setEditWeight] = useState('');
   const [editDate, setEditDate] = useState('');
+
   // Workout Edit Modal States
   const [workoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -55,10 +54,8 @@ export default function Analytics({ theme, appSettings, navigation }) {
   
   // Listen for navigation focus changes using the built-in navigation prop
   useEffect(() => {
-    // Initial load when component mounts
     loadAllHistoricalLogs();
 
-    // Re-trigger load every single time the user transitions to this screen
     if (navigation && navigation.addListener) {
       const unsubscribe = navigation.addListener('focus', () => {
         loadAllHistoricalLogs();
@@ -75,7 +72,9 @@ export default function Analytics({ theme, appSettings, navigation }) {
       const storedWorkoutHistory = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
       
       // Look up cross-screen blood pressure key entries alongside internal fallback
-      const storedVitalsHistory = await AsyncStorage.getItem(VITALS_HISTORY_KEY) || await AsyncStorage.getItem('@fitpursuit_bp');
+      const storedVitalsHistory = await AsyncStorage.getItem(VITALS_HISTORY_KEY) || 
+                                  await AsyncStorage.getItem(BP_SCREEN_HISTORY_KEY) || 
+                                  await AsyncStorage.getItem('@fitpursuit_bp');
 
       if (storedProfile) setProfile(JSON.parse(storedProfile));
       if (storedWeightHistory) {
@@ -121,38 +120,6 @@ export default function Analytics({ theme, appSettings, navigation }) {
     }
   };
 
-  const handleAddVitalsLog = async () => {
-    if (!inputSystolic || !inputDiastolic || !inputBpm || isNaN(inputSystolic) || isNaN(inputDiastolic) || isNaN(inputBpm)) {
-      showStatusAlert('Please complete all fields with numbers.');
-      return;
-    }
-
-    try {
-      const newVitalsLog = {
-        id: Date.now().toString(),
-        systolic: parseInt(inputSystolic),
-        diastolic: parseInt(inputDiastolic),
-        bpm: parseInt(inputBpm),
-        date: vitalsDate || new Date().toISOString().split('T')[0]
-      };
-
-      const updatedVitals = [newVitalsLog, ...vitalsHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
-      
-      // Save data back concurrently to both keys so both screens can track updates dynamically
-      await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updatedVitals));
-      await AsyncStorage.setItem('@fitpursuit_bp', JSON.stringify(updatedVitals));
-      setVitalsHistory(updatedVitals);
-      
-      // Reset input fields cleanly
-      setInputSystolic('');
-      setInputDiastolic('');
-      setInputBpm('');
-      showStatusAlert('Cardiovascular vitals recorded successfully!');
-    } catch (e) {
-      showStatusAlert('Failed to log vitals entry.');
-    }
-  };
-
   const handleDeleteWeightLog = (id) => {
     Alert.alert('Delete Log Entry', 'Are you sure you want to remove this historical weight calculation point?', [
       { text: 'Cancel', style: 'cancel' },
@@ -192,6 +159,7 @@ export default function Analytics({ theme, appSettings, navigation }) {
         onPress: async () => {
           const updated = vitalsHistory.filter(item => item.id !== id);
           await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updated));
+          await AsyncStorage.setItem(BP_SCREEN_HISTORY_KEY, JSON.stringify(updated));
           await AsyncStorage.setItem('@fitpursuit_bp', JSON.stringify(updated));
           setVitalsHistory(updated);
         }
@@ -262,13 +230,11 @@ export default function Analytics({ theme, appSettings, navigation }) {
     setTimeout(() => setStatusMessage(null), 3500);
   };
 
-  // Render Line Chart Sub-Module for Weight Progress
   const renderWeightChart = () => {
     if (history.length < 2) return null;
 
-    // Isolate, flip to oldest-first, and slice down to the 5 most recent records
     const chronologicalData = [...history].reverse().slice(-5);
-    const chartLabels = chronologicalData.map(item => item.date.substring(5)); // Formats YYYY-MM-DD to MM-DD
+    const chartLabels = chronologicalData.map(item => item.date.substring(5));
     const chartDataPoints = chronologicalData.map(item => item.weight);
 
     return (
@@ -297,6 +263,52 @@ export default function Analytics({ theme, appSettings, navigation }) {
     );
   };
 
+  const renderVitalsChart = () => {
+    if (vitalsHistory.length < 2) return null;
+
+    const chronologicalVitals = [...vitalsHistory].reverse().slice(-5);
+    const vitalLabels = chronologicalVitals.map(item => item.date.substring(5));
+    const systolicPoints = chronologicalVitals.map(item => item.systolic);
+    const diastolicPoints = chronologicalVitals.map(item => item.diastolic);
+
+    return (
+      <View style={{ marginVertical: 10, alignItems: 'center' }}>
+        <LineChart
+          data={{
+            labels: vitalLabels,
+            datasets: [
+              {
+                data: systolicPoints,
+                color: (opacity = 1) => `rgba(229, 62, 62, ${opacity})`,
+                strokeWidth: 2
+              },
+              {
+                data: diastolicPoints,
+                color: (opacity = 1) => `rgba(74, 85, 104, ${opacity})`,
+                strokeWidth: 2
+              }
+            ],
+            legend: ['Systolic', 'Diastolic']
+          }}
+          width={Dimensions.get('window').width - 40}
+          height={200}
+          chartConfig={{
+            backgroundColor: theme.card,
+            backgroundGradientFrom: theme.card,
+            backgroundGradientTo: theme.card,
+            decimalPlaces: 0,
+            color: (opacity = 1) => theme.text || `rgba(255, 255, 255, ${opacity})`,
+            labelColor: (opacity = 1) => theme.textMuted || '#718096',
+            style: { borderRadius: 16 },
+            propsForDots: { r: '4', strokeWidth: '1' }
+          }}
+          bezier
+          style={{ borderRadius: 16, borderWidth: 1, borderColor: theme.border }}
+        />
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -310,7 +322,6 @@ export default function Analytics({ theme, appSettings, navigation }) {
       <View style={styles.header}>
         <Text style={[styles.mainTitle, { color: theme.text }]}>Analytics & Logs</Text>
         
-        {/* Expanded Three-Segment Toggles Controller Bar */}
         <View style={[styles.segmentContainer, { backgroundColor: theme.card }]}>
           <TouchableOpacity 
             style={[styles.segmentBtn, activeTab === 'weight' && styles.segmentBtnActive]} 
@@ -345,7 +356,6 @@ export default function Analytics({ theme, appSettings, navigation }) {
       )}
 
       {activeTab === 'weight' && (
-        /* TAB 1: WEIGHT LOG TRACKING TAB LAYOUT ENGINE */
         <FlatList
           data={history}
           keyExtractor={(item) => item.id}
@@ -354,7 +364,7 @@ export default function Analytics({ theme, appSettings, navigation }) {
             <View style={{ gap: 4 }}>
               <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 10 }]}>
                 <Text style={[styles.cardHeading, { color: theme.text }]}>
-                  Current Profile Weight: {profile?.currentWeight || profile?.targetWeight || 'Not set'} {currentWeightUnit}
+                  Current Profile Weight: {profile?.currentWeight || 'Not set'} {currentWeightUnit}
                 </Text>
                 
                 <View style={styles.inlineForm}>
@@ -406,7 +416,6 @@ export default function Analytics({ theme, appSettings, navigation }) {
       )}
 
       {activeTab === 'workouts' && (
-        /* TAB 2: WORKOUT ROUTINE HISTORY TAB LAYOUT ENGINE */
         <FlatList
           data={workoutHistory}
           keyExtractor={(item) => item.id}
@@ -455,54 +464,13 @@ export default function Analytics({ theme, appSettings, navigation }) {
       )}
 
       {activeTab === 'vitals' && (
-        /* TAB 3: CARDIOVASCULAR HEALTH & VITALS ENGINE */
         <FlatList
           data={vitalsHistory}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.cardHeading, { color: theme.text }]}>Log Vitals Profile (BP & Heart Rate)</Text>
-              <View style={{ gap: 10 }}>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput
-                    placeholder="Sys (Top)"
-                    placeholderTextColor="#4a5568"
-                    keyboardType="numeric"
-                    value={inputSystolic}
-                    onChangeText={setInputSystolic}
-                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                  />
-                  <TextInput
-                    placeholder="Dia (Bottom)"
-                    placeholderTextColor="#4a5568"
-                    keyboardType="numeric"
-                    value={inputDiastolic}
-                    onChangeText={setInputDiastolic}
-                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                  />
-                  <TextInput
-                    placeholder="BPM (Pulse)"
-                    placeholderTextColor="#4a5568"
-                    keyboardType="numeric"
-                    value={inputBpm}
-                    onChangeText={setInputBpm}
-                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                  />
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TextInput
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#4a5568"
-                    value={vitalsDate}
-                    onChangeText={setVitalsDate}
-                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, flex: 2 }]}
-                  />
-                  <TouchableOpacity style={[styles.appendRecordBtn, { flex: 1 }]} onPress={handleAddVitalsLog}>
-                    <Text style={styles.appendRecordText}>Log Vitals</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+            <View style={{ gap: 4 }}>
+              {renderVitalsChart()}
             </View>
           }
           renderItem={({ item }) => (
