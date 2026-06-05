@@ -19,9 +19,9 @@ import { Scale, Trash2, Calendar, X, Dumbbell, Heart } from 'lucide-react-native
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
 const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
-const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history'; // New tracking vector key
+const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history'; // Internal tracking vector fallback fallback
 
-export default function Analytics({ theme, appSettings }) {
+export default function Analytics({ theme, appSettings, navigation }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('weight'); // 'weight', 'workouts', or 'vitals'
   
@@ -30,35 +30,40 @@ export default function Analytics({ theme, appSettings }) {
   const [history, setHistory] = useState([]);
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [vitalsHistory, setVitalsHistory] = useState([]);
-  
   // Weight Log Form states
   const [inputWeight, setInputWeight] = useState('');
-  const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]); 
-  
+  const [inputDate, setInputDate] = useState(new Date().toISOString().split('T')[0]);
   // Vitals Log Form States
   const [inputSystolic, setInputSystolic] = useState('');
   const [inputDiastolic, setInputDiastolic] = useState('');
   const [inputBpm, setInputBpm] = useState('');
   const [vitalsDate, setVitalsDate] = useState(new Date().toISOString().split('T')[0]);
-
   // Weight Edit Modal States
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [editWeight, setEditWeight] = useState('');
   const [editDate, setEditDate] = useState('');
-
   // Workout Edit Modal States
   const [workoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
-
   const [statusMessage, setStatusMessage] = useState(null);
 
   // Sync Global Display Preference Units
   const currentWeightUnit = appSettings?.weightUnit || 'lbs';
-
+  
+  // Listen for navigation focus changes using the built-in navigation prop
   useEffect(() => {
+    // Initial load when component mounts
     loadAllHistoricalLogs();
-  }, []);
+
+    // Re-trigger load every single time the user transitions to this screen
+    if (navigation && navigation.addListener) {
+      const unsubscribe = navigation.addListener('focus', () => {
+        loadAllHistoricalLogs();
+      });
+      return unsubscribe;
+    }
+  }, [navigation]);
 
   const loadAllHistoricalLogs = async () => {
     setLoading(true);
@@ -66,10 +71,11 @@ export default function Analytics({ theme, appSettings }) {
       const storedProfile = await AsyncStorage.getItem(PROFILE_KEY);
       const storedWeightHistory = await AsyncStorage.getItem(HISTORY_KEY);
       const storedWorkoutHistory = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
-      const storedVitalsHistory = await AsyncStorage.getItem(VITALS_HISTORY_KEY);
+      
+      // Look up cross-screen blood pressure key entries alongside internal fallback
+      const storedVitalsHistory = await AsyncStorage.getItem(VITALS_HISTORY_KEY) || await AsyncStorage.getItem('@fitpursuit_bp');
 
       if (storedProfile) setProfile(JSON.parse(storedProfile));
-      
       if (storedWeightHistory) {
         const parsedWeight = JSON.parse(storedWeightHistory);
         setHistory(parsedWeight.sort((a, b) => new Date(b.date) - new Date(a.date)));
@@ -129,7 +135,10 @@ export default function Analytics({ theme, appSettings }) {
       };
 
       const updatedVitals = [newVitalsLog, ...vitalsHistory].sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Save data back concurrently to both keys so both screens can track updates dynamically
       await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updatedVitals));
+      await AsyncStorage.setItem('@fitpursuit_bp', JSON.stringify(updatedVitals));
       setVitalsHistory(updatedVitals);
       
       // Reset input fields cleanly
@@ -181,6 +190,7 @@ export default function Analytics({ theme, appSettings }) {
         onPress: async () => {
           const updated = vitalsHistory.filter(item => item.id !== id);
           await AsyncStorage.setItem(VITALS_HISTORY_KEY, JSON.stringify(updated));
+          await AsyncStorage.setItem('@fitpursuit_bp', JSON.stringify(updated));
           setVitalsHistory(updated);
         }
       }
@@ -197,7 +207,6 @@ export default function Analytics({ theme, appSettings }) {
 
   const handleUpdateWeightLog = async () => {
     if (!editWeight || isNaN(editWeight)) return;
-
     try {
       const updated = history.map(item => {
         if (item.id === editingItem.id) {
@@ -205,7 +214,6 @@ export default function Analytics({ theme, appSettings }) {
         }
         return item;
       }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
       await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
       setHistory(updated);
       setEditModalVisible(false);
@@ -237,7 +245,6 @@ export default function Analytics({ theme, appSettings }) {
         }
         return item;
       });
-
       await AsyncStorage.setItem(WORKOUT_HISTORY_KEY, JSON.stringify(updated));
       setWorkoutHistory(updated);
       setWorkoutModalVisible(false);
@@ -308,7 +315,10 @@ export default function Analytics({ theme, appSettings }) {
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={
             <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.cardHeading, { color: theme.text }]}>Quick-Log Scale Value</Text>
+              <Text style={[styles.cardHeading, { color: theme.text }]}>
+                Current Profile Weight: {profile?.currentWeight || profile?.targetWeight || 'Not set'} {currentWeightUnit}
+              </Text>
+              
               <View style={styles.inlineForm}>
                 <TextInput
                   placeholder={`Weight (${currentWeightUnit})`}
@@ -542,11 +552,9 @@ export default function Analytics({ theme, appSettings }) {
               {editingWorkout?.exercisesCompleted.map((ex, exIdx) => (
                 <View key={exIdx} style={{ gap: 8, borderTopWidth: 1, borderTopColor: 'rgba(113, 128, 150, 0.2)', paddingTop: 12 }}>
                   <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{ex.name}</Text>
-                  
                   {ex.sets.map((set, sIdx) => (
                     <View key={sIdx} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Text style={{ color: theme.textMuted, fontSize: 12, width: 40 }}>Set {sIdx + 1}</Text>
-                      
                       <TextInput
                         placeholder={currentWeightUnit}
                         placeholderTextColor="#4a5568"
@@ -555,7 +563,6 @@ export default function Analytics({ theme, appSettings }) {
                         onChangeText={(val) => handleWorkoutInputChange(exIdx, sIdx, 'weight', val)}
                         style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text, height: 36 }]}
                       />
-                      
                       <TextInput
                         placeholder="reps"
                         placeholderTextColor="#4a5568"
