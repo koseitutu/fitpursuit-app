@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, Modal } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, Modal, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Play, CheckCircle, Info, ShieldAlert } from 'lucide-react-native';
+import { Play, CheckCircle, Info, ShieldAlert, Calendar } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { WEEKLY_ROUTINE } from '../data/workouts';
 
 export default function Workout({ route, navigation, theme, appSettings }) {
@@ -16,6 +17,10 @@ export default function Workout({ route, navigation, theme, appSettings }) {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [coachModalVisible, setCoachModalVisible] = useState(false);
   const [coachMessage, setCoachMessage] = useState('');
+
+  // Keep track of the selected logging date as a JavaScript Date object
+  const [workoutDate, setWorkoutDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Audio object persistence reference
   const soundObjectRef = useRef(null);
@@ -40,6 +45,10 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       backgroundColor: isDark ? '#2c1a1a' : '#fff5f5',
       borderColor: isDark ? 'transparent' : '#feb2b2',
       borderWidth: isDark ? 0 : 1,
+    },
+    dateRow: {
+      backgroundColor: isDark ? '#1e232b' : '#ffffff',
+      borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : '#e2e8f0',
     },
     placeholderColor: isDark ? '#4a5568' : '#a0aec0',
   };
@@ -106,6 +115,17 @@ export default function Workout({ route, navigation, theme, appSettings }) {
     }));
   };
 
+  // Date Selection Change Listener
+  const onDateChange = (event, selectedDate) => {
+    // Hide picker view layer on Android immediately once selection confirmed
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      setWorkoutDate(selectedDate);
+    }
+  };
+
   const saveWorkout = async () => {
     let progressiveOverloadAchieved = [];
 
@@ -126,9 +146,12 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       const existingHistoryJson = await AsyncStorage.getItem(WORKOUT_HISTORY_KEY);
       const currentHistory = existingHistoryJson ? JSON.parse(existingHistoryJson) : [];
       
+      // Formats the Date object into a reliable YYYY-MM-DD template matching your tracking parameters
+      const formattedDateString = workoutDate.toISOString().split('T')[0];
+
       const newSessionRecord = {
         id: Date.now().toString(),
-        date: new Date().toISOString().split('T')[0],
+        date: formattedDateString,
         day: day,
         routineTitle: routine.title,
         exercisesCompleted: routine.exercises.map(ex => ({
@@ -155,6 +178,44 @@ export default function Workout({ route, navigation, theme, appSettings }) {
       <ScrollView style={styles.container}>
         <Text style={[styles.dayTitle, { color: activeTheme.text }]}>{day}'s Blueprint</Text>
         <Text style={[styles.routineTitle, { color: activeTheme.textMuted }]}>{routine.title} • {routine.type}</Text>
+
+        {/* Clean, Non-Editable Interactive Date Card Layer Button */}
+        <TouchableOpacity 
+          activeOpacity={0.7} 
+          onPress={() => setShowDatePicker(true)}
+          style={[styles.dateControlRow, interactiveStyles.dateRow]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Calendar color="#dd6b20" size={16} />
+            <Text style={[styles.dateLabel, { color: activeTheme.text }]}>Logging Date:</Text>
+          </View>
+          <View style={[styles.dateDisplayBadge, { backgroundColor: activeTheme.background, borderColor: activeTheme.border }]}>
+            <Text style={[styles.dateDisplayText, { color: activeTheme.text }]}>
+              {workoutDate.toISOString().split('T')[0]}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Conditional Native Calendar Engine Render Segment */}
+        {showDatePicker && (
+          <View style={Platform.OS === 'ios' ? styles.iosDatePickerContainer : null}>
+            <DateTimePicker
+              value={workoutDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={onDateChange}
+              maximumDate={new Date()} // Prevents accidental future logs
+            />
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity 
+                style={styles.iosCloseButton} 
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.iosCloseButtonText}>Done</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         <View style={[styles.safetyBox, interactiveStyles.safetyBox]}>
           <ShieldAlert color="#e53e3e" size={16} />
@@ -237,6 +298,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, marginTop: 40 },
   dayTitle: { fontSize: 24, fontWeight: 'bold' },
   routineTitle: { fontSize: 14, marginBottom: 12 },
+  dateControlRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 10, borderWidth: 1, marginBottom: 14 },
+  dateLabel: { fontSize: 13, fontWeight: '700' },
+  dateDisplayBadge: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6, width: '40%', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  dateDisplayText: { fontSize: 13, fontWeight: '600' },
+  iosDatePickerContainer: { backgroundColor: 'rgba(113, 128, 150, 0.08)', borderRadius: 14, padding: 10, marginBottom: 14, alignItems: 'center' },
+  iosCloseButton: { backgroundColor: '#dd6b20', paddingVertical: 6, paddingHorizontal: 20, borderRadius: 8, marginTop: 8, alignSelf: 'flex-end' },
+  iosCloseButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 12 },
   safetyBox: { flexDirection: 'row', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 20 },
   safetyText: { color: '#e53e3e', fontSize: 11, marginLeft: 8, fontWeight: '500' },
   exerciseCard: { borderRadius: 12, padding: 16, marginBottom: 16, borderWidth: 1 },

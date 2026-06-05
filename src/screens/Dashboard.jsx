@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { Dumbbell, Calendar, Flame } from 'lucide-react-native';
 import { WEEKLY_ROUTINE } from '../data/workouts';
@@ -9,6 +9,9 @@ export default function Dashboard({ navigation, theme }) {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const currentDayIndex = new Date().getDay(); 
   const defaultDay = (currentDayIndex >= 1 && currentDayIndex <= 5) ? days[currentDayIndex - 1] : 'Monday';
+
+  // Add state to track which day the user has clicked on/selected
+  const [selectedDay, setSelectedDay] = useState(defaultDay);
 
   // Dynamic Theme Palette
   const themeStyles = {
@@ -24,6 +27,11 @@ export default function Dashboard({ navigation, theme }) {
       borderColor: '#dd6b20',
       borderWidth: 1,
       backgroundColor: isDark ? '#251c16' : '#fffaf0',
+    },
+    selectedCard: {
+      borderColor: '#dd6b20',
+      borderWidth: 1,
+      backgroundColor: isDark ? '#2c251e' : '#fff3e0',
     },
     titleText: {
       color: isDark ? '#ffffff' : '#1a202c',
@@ -52,47 +60,72 @@ export default function Dashboard({ navigation, theme }) {
         </View>
       </View>
 
-      {/* Week Timeline */}
+      {/* Interactive Week Timeline */}
       <Text style={[styles.sectionHeader, themeStyles.titleText]}>Weekly Matrix</Text>
       <View style={styles.calendarStrip}>
         {days.map((day) => {
           const isToday = day === defaultDay;
+          const isSelected = day === selectedDay;
+          
           return (
-            <View 
+            <TouchableOpacity 
               key={day} 
+              activeOpacity={0.7}
+              onPress={() => setSelectedDay(day)}
               style={[
                 styles.dayCard, 
                 themeStyles.card, 
-                isToday && themeStyles.todayCard
+                isToday && themeStyles.todayCard,
+                isSelected && themeStyles.selectedCard
               ]}
             >
-              <Text style={[styles.dayText, isToday ? styles.todayText : themeStyles.subText]}>
+              <Text style={[
+                styles.dayText, 
+                isSelected || isToday ? styles.todayText : themeStyles.subText
+              ]}>
                 {day.substring(0,3)}
               </Text>
-              <Calendar color={isToday ? "#dd6b20" : "#718096"} size={18} style={{marginTop: 6}} />
-            </View>
+              <Calendar color={isSelected || isToday ? "#dd6b20" : "#718096"} size={18} style={{marginTop: 6}} />
+              
+              {/* Subtle indicator for the actual calendar "Today" if a different day is selected */}
+              {isToday && !isSelected && (
+                <View style={styles.todayIndicatorDot} />
+              )}
+            </TouchableOpacity>
           );
         })}
       </View>
 
-      {/* Main Dynamic Launcher Action */}
+      {/* Main Dynamic Launcher Action - Launches Selected Day */}
       <TouchableOpacity 
         style={styles.actionButton}
-        onPress={() => navigation.navigate('Workout', { day: defaultDay })}
+        onPress={() => navigation.navigate('Workout', { day: selectedDay })}
       >
         <Dumbbell color="#ffffff" size={24} />
-        <Text style={styles.actionButtonText}>Launch {defaultDay}'s Routine</Text>
+        <Text style={styles.actionButtonText}>Launch {selectedDay}'s Routine</Text>
       </TouchableOpacity>
 
       <Text style={[styles.sectionHeader, themeStyles.titleText]}>Overview Plan</Text>
-      {days.map((day) => (
-        <View key={day} style={[styles.summaryCard, themeStyles.card]}>
-          <Text style={[styles.summaryDay, themeStyles.titleText]}>{day}</Text>
-          <Text style={[styles.summaryRoutine, themeStyles.mutedText]}>
-            {WEEKLY_ROUTINE[day].title} • <Text style={{color: '#dd6b20'}}>{WEEKLY_ROUTINE[day].type}</Text>
-          </Text>
-        </View>
-      ))}
+      {days.map((day) => {
+        const isSelected = day === selectedDay;
+        return (
+          <TouchableOpacity 
+            key={day} 
+            activeOpacity={0.8}
+            onPress={() => setSelectedDay(day)}
+            style={[
+              styles.summaryCard, 
+              themeStyles.card,
+              isSelected && themeStyles.selectedCard
+            ]}
+          >
+            <Text style={[styles.summaryDay, themeStyles.titleText]}>{day}</Text>
+            <Text style={[styles.summaryRoutine, themeStyles.mutedText]}>
+              {WEEKLY_ROUTINE[day].title} • <Text style={{color: '#dd6b20'}}>{WEEKLY_ROUTINE[day].type}</Text>
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -108,12 +141,13 @@ const styles = StyleSheet.create({
   streakSub: { fontSize: 12 },
   sectionHeader: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, marginTop: 10 },
   calendarStrip: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
-  dayCard: { padding: 12, borderRadius: 10, alignItems: 'center', width: '18%' },
+  dayCard: { padding: 12, borderRadius: 10, alignItems: 'center', width: '18%', position: 'relative' },
   dayText: { fontWeight: '600' },
   todayText: { color: '#dd6b20', fontWeight: 'bold' },
+  todayIndicatorDot: { position: 'absolute', bottom: 4, width: 4, height: 4, borderRadius: 2, backgroundColor: '#dd6b20' },
   actionButton: { backgroundColor: '#dd6b20', flexDirection: 'row', padding: 18, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 30 },
   actionButtonText: { color: '#ffffff', fontWeight: 'bold', fontSize: 16, marginLeft: 10 },
-  summaryCard: { padding: 14, borderRadius: 10, marginBottom: 10 },
+  summaryCard: { padding: 14, borderRadius: 10, marginBottom: 10, borderWidth: 1 },
   summaryDay: { fontWeight: 'bold', fontSize: 14 },
   summaryRoutine: { fontSize: 12, marginTop: 2 }
 });
