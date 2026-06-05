@@ -14,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, Shield, Moon, Sun, Bell, SquareStack, Sliders } from 'lucide-react-native';
 
 const STORAGE_KEY = '@fitpursuit_profile';
+const HISTORY_KEY = '@fitpursuit_weight_history';
 
 export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   // Fallback Normalizer: Dynamically protects the component regardless of how theme is supplied
@@ -97,8 +98,27 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         updatedAt: new Date().toISOString(),
       };
 
+      // 1. Save local snapshot configuration
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profileData));
       
+      // 2. New tracking logic: Append value into historical logging timeline
+      if (currentWeight && !isNaN(currentWeight)) {
+        const existingHistoryRaw = await AsyncStorage.getItem(HISTORY_KEY);
+        let historyArray = [];
+        if (existingHistoryRaw) {
+          historyArray = JSON.parse(existingHistoryRaw);
+        }
+
+        const newHistoryEntry = {
+          id: Date.now().toString(),
+          weight: parseFloat(currentWeight),
+          date: new Date().toISOString().split('T')[0] // Formats cleanly as YYYY-MM-DD
+        };
+
+        const updatedHistoryArray = [newHistoryEntry, ...historyArray];
+        await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistoryArray));
+      }
+
       if (Platform.OS === 'web') {
         alert('Profile settings updated successfully!');
       } else {
