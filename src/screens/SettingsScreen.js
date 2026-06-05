@@ -11,10 +11,18 @@ import {
   Platform
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Shield, Moon, Sun, Bell, SquareStack, Sliders } from 'lucide-react-native';
+import { User, Shield, Moon, Sun, Bell, SquareStack, Sliders, Download, Upload } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 const STORAGE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
+const WORKOUT_HISTORY_KEY = '@fitpursuit_workout_history';
+const VITALS_HISTORY_KEY = '@fitpursuit_vitals_history';
+const BP_SCREEN_HISTORY_KEY = '@fitpursuit_bp_history';
+
+// Web Guard: Safely falls back to an empty string if running in a web browser architecture context
+const safeDocumentDirectory = FileSystem.documentDirectory || '';
 
 export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   // Fallback Normalizer: Dynamically protects the component regardless of how theme is supplied
@@ -56,8 +64,9 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         const data = JSON.parse(jsonValue);
         setName(data.name || '');
         setAge(data.age ? data.age.toString() : '');
-        // Gracefully fallback to old data fields so previous user metrics carry over cleanly
-        setCurrentWeight(data.currentWeight ? data.currentWeight.toString() : (data.targetWeight ? data.targetWeight.toString() : ''));
+        
+        // Priority Enforcement: Strictly binds present statistics, skipping obsolete targets
+        setCurrentWeight(data.currentWeight ? data.currentWeight.toString() : '');
 
         // Safely parse saved height configurations based on units
         if (data.heightUnit === 'ft-in' || (!data.heightUnit && data.height)) {
@@ -91,17 +100,14 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         age: age ? parseInt(age, 10) : null,
         height: calculatedHeight,
         currentWeight: currentWeight ? parseFloat(currentWeight) : null,
-        // Retain key placeholder backup for complete multi-screen file safety
         targetWeight: currentWeight ? parseFloat(currentWeight) : null,
         weightUnit: currentWeightUnit,
         heightUnit: currentHeightUnit,
         updatedAt: new Date().toISOString(),
       };
 
-      // 1. Save local snapshot configuration
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(profileData));
       
-      // 2. New tracking logic: Append value into historical logging timeline
       if (currentWeight && !isNaN(currentWeight)) {
         const existingHistoryRaw = await AsyncStorage.getItem(HISTORY_KEY);
         let historyArray = [];
@@ -112,7 +118,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         const newHistoryEntry = {
           id: Date.now().toString(),
           weight: parseFloat(currentWeight),
-          date: new Date().toISOString().split('T')[0] // Formats cleanly as YYYY-MM-DD
+          date: new Date().toISOString().split('T')[0]
         };
 
         const updatedHistoryArray = [newHistoryEntry, ...historyArray];
@@ -131,6 +137,130 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         Alert.alert('Error', 'Failed to save profile changes.');
       }
     }
+  };
+
+  // --- UNIFIED IMPORT/EXPORT LOGIC (COMBINED CSV METHOD) ---
+  
+  const handleExportCSV = async () => {
+    if (Platform.OS === 'web') {
+      alert('Local file sharing is unavailable in standard web browser sandboxes. Use an emulator or Expo Go.');
+      return;
+    }
+
+    try {
+      const [profileRaw, weightRaw, workoutRaw, vitalsRaw, bpRaw] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEY),
+        AsyncStorage.getItem(HISTORY_KEY),
+        AsyncStorage.getItem(WORKOUT_HISTORY_KEY),
+        AsyncStorage.getItem(VITALS_HISTORY_KEY),
+        AsyncStorage.getItem(BP_SCREEN_HISTORY_KEY)
+      ]);
+
+      let csvContent = 'DATA_TYPE,PAYLOAD_JSON\n';
+
+      if (profileRaw) csvContent += `PROFILE,${JSON.stringify(profileRaw)}\n`;
+      if (weightRaw) csvContent += `WEIGHT,${JSON.stringify(weightRaw)}\n`;
+      if (workoutRaw) csvContent += `WORKOUT,${JSON.stringify(workoutRaw)}\n`;
+      if (vitalsRaw) csvContent += `VITAL,${JSON.stringify(vitalsRaw)}\n`;
+      if (bpRaw) csvContent += `BP,${JSON.stringify(bpRaw)}\n`;
+
+      // Uses the safeguarded path variable to prevent null reference errors on web bundle renders
+      const fileUri = `${safeDocumentDirectory}fitpursuit_backup.csv`;
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: 'Export FitPursuit Metrics Backup' });
+      } else {
+        Alert.alert('Unsupported Engine', 'Sharing is not available on this device ecosystem.');
+      }
+    } catch (error) {
+      console.error('Export operation failure:', error);
+      Alert.alert('Export Failed', 'An unexpected conflict caused the backup routine to pause.');
+    }
+  };
+
+  const handleImportCSV = async () => {
+    if (Platform.OS === 'web') {
+      alert('File importing needs to be executed inside a local native deployment bundle context.');
+      return;
+    }
+
+    Alert.alert(
+      'Import Backup',
+      'Are you sure you want to load this file? This will merge or overwrite your current active logs.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Proceed',
+          onPress: async () => {
+            try {
+              const fileUri = `${safeDocumentDirectory}fitpursuit_backup.csv`;
+              
+              const fileExists = await FileSystem.getInfoAsync(fileUri);
+              if (!fileExists.exists) {
+                Alert.alert('No File Detected', 'Please ensure fitpursuit_backup.csv exists in your app document directory folder.');
+                return;
+              }
+
+              const csvString = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+              const rows = csvString.split('\n');
+
+              let importedProfile = null;
+              let importedWeight = null;
+              let importedWorkout = null;
+              let importedVitals = null;
+              let importedBp = null;
+
+              for (let i = 1; i < rows.length; i++) {
+                const currentRow = rows[i].trim();
+                if (!currentRow) continue;
+
+                const commaIndex = currentRow.indexOf(',');
+                if (commaIndex === -1) continue;
+
+                const dataType = currentRow.substring(0, commaIndex);
+                let payloadJson = currentRow.substring(commaIndex + 1);
+
+                if (payloadJson.startsWith('"') && payloadJson.endsWith('"')) {
+                  payloadJson = payloadJson.slice(1, -1);
+                }
+                payloadJson = payloadJson.replace(/""/g, '"');
+
+                try {
+                  const verifiedData = JSON.parse(payloadJson);
+                  if (dataType === 'PROFILE') importedProfile = verifiedData;
+                  if (dataType === 'WEIGHT') importedWeight = verifiedData;
+                  if (dataType === 'WORKOUT') importedWorkout = verifiedData;
+                  if (dataType === 'VITAL') importedVitals = verifiedData;
+                  if (dataType === 'BP') importedBp = verifiedData;
+                } catch (e) {
+                  console.log(`Failed parsing item block line: ${i}`, e);
+                }
+              }
+
+              const saveOperations = [];
+              if (importedProfile) saveOperations.push(AsyncStorage.setItem(STORAGE_KEY, typeof importedProfile === 'string' ? importedProfile : JSON.stringify(importedProfile)));
+              if (importedWeight) saveOperations.push(AsyncStorage.setItem(HISTORY_KEY, typeof importedWeight === 'string' ? importedWeight : JSON.stringify(importedWeight)));
+              if (importedWorkout) saveOperations.push(AsyncStorage.setItem(WORKOUT_HISTORY_KEY, typeof importedWorkout === 'string' ? importedWorkout : JSON.stringify(importedWorkout)));
+              if (importedVitals) saveOperations.push(AsyncStorage.setItem(VITALS_HISTORY_KEY, typeof importedVitals === 'string' ? importedVitals : JSON.stringify(importedVitals)));
+              if (importedBp) saveOperations.push(AsyncStorage.setItem(BP_SCREEN_HISTORY_KEY, typeof importedBp === 'string' ? importedBp : JSON.stringify(importedBp)));
+
+              if (saveOperations.length > 0) {
+                await Promise.all(saveOperations);
+                Alert.alert('Success', 'Metrics loaded perfectly.', [
+                  { text: 'OK', onPress: () => loadProfileData() }
+                ]);
+              } else {
+                Alert.alert('Import Halted', 'No structural data alignment found within the file.');
+              }
+            } catch (err) {
+              console.error('Import processing sequence failure:', err);
+              Alert.alert('Import Failed', 'Unable to parse structural components from file parameters.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const toggleWeightUnit = () => {
@@ -182,7 +312,6 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
             />
           </View>
 
-          {/* Dynamic Height Inputs Layout Split Block */}
           <View style={[styles.formGroup, { flex: 2 }]}>
             <Text style={[styles.label, { color: activeTheme.textMuted }]}>
               Height ({currentHeightUnit === 'ft-in' ? 'ft / in' : 'cm'})
@@ -244,6 +373,36 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         </TouchableOpacity>
       </View>
 
+      {/* CSV Backup Card Section */}
+      <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
+        <View style={styles.sectionHeader}>
+          <Download size={18} color="#dd6b20" />
+          <Text style={[styles.sectionTitle, { color: activeTheme.text }]}>Data Backup Control Hub</Text>
+        </View>
+        
+        <Text style={[styles.backupDescriptionText, { color: activeTheme.textMuted }]}>
+          Generate a cross-platform data snapshot (`.csv` format) to back up your metrics history offline, or load a historical save point.
+        </Text>
+
+        <View style={styles.backupActionsButtonGroupRow}>
+          <TouchableOpacity 
+            style={[styles.backupUtilityButton, { backgroundColor: '#dd6b20' }]} 
+            onPress={handleExportCSV}
+          >
+            <Download size={16} color="#ffffff" />
+            <Text style={styles.backupUtilityButtonText}>Export CSV</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.backupUtilityButton, { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#dd6b20' }]} 
+            onPress={handleImportCSV}
+          >
+            <Upload size={16} color="#dd6b20" />
+            <Text style={[styles.backupUtilityButtonText, { color: '#dd6b20' }]}>Import CSV</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Preferences Section */}
       <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
         <View style={styles.sectionHeader}>
@@ -251,7 +410,6 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
           <Text style={[styles.sectionTitle, { color: activeTheme.text }]}>Application Preferences</Text>
         </View>
 
-        {/* Theme Toggle Row */}
         <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
             {activeTheme.mode === 'dark' ? <Moon size={16} color={activeTheme.text} /> : <Sun size={16} color={activeTheme.text} />}
@@ -265,7 +423,6 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
           />
         </View>
 
-        {/* Weight Units Toggle Row */}
         <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
             <Bell size={16} color={activeTheme.text} />
@@ -276,7 +433,6 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
           </TouchableOpacity>
         </View>
 
-        {/* Height Units Toggle Row */}
         <View style={[styles.settingRow, { borderBottomColor: activeTheme.border }]}>
           <View style={styles.settingMeta}>
             <Sliders size={16} color={activeTheme.text} />
@@ -288,7 +444,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         </View>
       </View>
 
-      {/* Security Info Card */}
+      {/* Data Privacy Section */}
       <View style={[styles.sectionCard, { backgroundColor: activeTheme.card, borderColor: activeTheme.border }]}>
         <View style={styles.sectionHeader}>
           <Shield size={18} color="#dd6b20" />
@@ -316,6 +472,10 @@ const styles = StyleSheet.create({
   splitRowContainer: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   saveButton: { backgroundColor: '#dd6b20', height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginTop: 8 },
   saveButtonText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  backupDescriptionText: { fontSize: 12, lineHeight: 18, marginBottom: 14 },
+  backupActionsButtonGroupRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 4 },
+  backupUtilityButton: { flex: 1, height: 40, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  backupUtilityButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
   settingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   settingMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   settingLabel: { fontSize: 13, fontWeight: '600' },
