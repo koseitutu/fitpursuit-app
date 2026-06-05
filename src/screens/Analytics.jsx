@@ -270,6 +270,7 @@ export default function Analytics({ theme, appSettings, navigation }) {
     const vitalLabels = chronologicalVitals.map(item => item.date.substring(5));
     const systolicPoints = chronologicalVitals.map(item => item.systolic);
     const diastolicPoints = chronologicalVitals.map(item => item.diastolic);
+    const pulsePoints = chronologicalVitals.map(item => item.bpm || item.pulse || 0);
 
     return (
       <View style={{ marginVertical: 10, alignItems: 'center' }}>
@@ -286,9 +287,14 @@ export default function Analytics({ theme, appSettings, navigation }) {
                 data: diastolicPoints,
                 color: (opacity = 1) => `rgba(74, 85, 104, ${opacity})`,
                 strokeWidth: 2
+              },
+              {
+                data: pulsePoints,
+                color: (opacity = 1) => `rgba(221, 107, 32, ${opacity})`,
+                strokeWidth: 2
               }
             ],
-            legend: ['Systolic', 'Diastolic']
+            legend: ['Systolic', 'Diastolic', 'Pulse']
           }}
           width={Dimensions.get('window').width - 40}
           height={200}
