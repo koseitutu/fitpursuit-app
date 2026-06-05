@@ -11,10 +11,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  ScrollView
+  ScrollView,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Scale, Trash2, Calendar, X, Dumbbell, Heart } from 'lucide-react-native';
+import { LineChart } from 'react-native-chart-kit';
 
 const PROFILE_KEY = '@fitpursuit_profile';
 const HISTORY_KEY = '@fitpursuit_weight_history';
@@ -260,6 +262,41 @@ export default function Analytics({ theme, appSettings, navigation }) {
     setTimeout(() => setStatusMessage(null), 3500);
   };
 
+  // Render Line Chart Sub-Module for Weight Progress
+  const renderWeightChart = () => {
+    if (history.length < 2) return null;
+
+    // Isolate, flip to oldest-first, and slice down to the 5 most recent records
+    const chronologicalData = [...history].reverse().slice(-5);
+    const chartLabels = chronologicalData.map(item => item.date.substring(5)); // Formats YYYY-MM-DD to MM-DD
+    const chartDataPoints = chronologicalData.map(item => item.weight);
+
+    return (
+      <View style={{ marginVertical: 10, alignItems: 'center' }}>
+        <LineChart
+          data={{
+            labels: chartLabels,
+            datasets: [{ data: chartDataPoints }]
+          }}
+          width={Dimensions.get('window').width - 40}
+          height={200}
+          chartConfig={{
+            backgroundColor: theme.card,
+            backgroundGradientFrom: theme.card,
+            backgroundGradientTo: theme.card,
+            decimalPlaces: 1,
+            color: (opacity = 1) => `rgba(221, 107, 32, ${opacity})`,
+            labelColor: (opacity = 1) => theme.textMuted || '#718096',
+            style: { borderRadius: 16 },
+            propsForDots: { r: '4', strokeWidth: '2', stroke: '#dd6b20' }
+          }}
+          bezier
+          style={{ borderRadius: 16, borderWidth: 1, borderColor: theme.border }}
+        />
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
@@ -314,31 +351,34 @@ export default function Analytics({ theme, appSettings, navigation }) {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={
-            <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.cardHeading, { color: theme.text }]}>
-                Current Profile Weight: {profile?.currentWeight || profile?.targetWeight || 'Not set'} {currentWeightUnit}
-              </Text>
-              
-              <View style={styles.inlineForm}>
-                <TextInput
-                  placeholder={`Weight (${currentWeightUnit})`}
-                  placeholderTextColor="#4a5568"
-                  keyboardType="numeric"
-                  value={inputWeight}
-                  onChangeText={setInputWeight}
-                  style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                />
-                <TextInput
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#4a5568"
-                  value={inputDate}
-                  onChangeText={setInputDate}
-                  style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
-                />
-                <TouchableOpacity style={styles.appendRecordBtn} onPress={handleAddWeightLog}>
-                  <Text style={styles.appendRecordText}>Add</Text>
-                </TouchableOpacity>
+            <View style={{ gap: 4 }}>
+              <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, marginBottom: 10 }]}>
+                <Text style={[styles.cardHeading, { color: theme.text }]}>
+                  Current Profile Weight: {profile?.currentWeight || profile?.targetWeight || 'Not set'} {currentWeightUnit}
+                </Text>
+                
+                <View style={styles.inlineForm}>
+                  <TextInput
+                    placeholder={`Weight (${currentWeightUnit})`}
+                    placeholderTextColor="#4a5568"
+                    keyboardType="numeric"
+                    value={inputWeight}
+                    onChangeText={setInputWeight}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  />
+                  <TextInput
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor="#4a5568"
+                    value={inputDate}
+                    onChangeText={setInputDate}
+                    style={[styles.inputField, { backgroundColor: theme.background, borderColor: theme.border, color: theme.text }]}
+                  />
+                  <TouchableOpacity style={styles.appendRecordBtn} onPress={handleAddWeightLog}>
+                    <Text style={styles.appendRecordText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
+              {renderWeightChart()}
             </View>
           }
           renderItem={({ item }) => (
