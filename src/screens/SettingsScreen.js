@@ -33,7 +33,7 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
   // Local Profile Form States
   const [name, setName] = useState('');
   const [age, setAge] = useState('');
-  const [targetWeight, setTargetWeight] = useState('');
+  const [currentWeight, setCurrentWeight] = useState('');
 
   // Height Specific Inputs Layout Split
   const [heightFeet, setHeightFeet] = useState('');
@@ -55,7 +55,8 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         const data = JSON.parse(jsonValue);
         setName(data.name || '');
         setAge(data.age ? data.age.toString() : '');
-        setTargetWeight(data.targetWeight ? data.targetWeight.toString() : '');
+        // Gracefully fallback to old data fields so previous user metrics carry over cleanly
+        setCurrentWeight(data.currentWeight ? data.currentWeight.toString() : (data.targetWeight ? data.targetWeight.toString() : ''));
 
         // Safely parse saved height configurations based on units
         if (data.heightUnit === 'ft-in' || (!data.heightUnit && data.height)) {
@@ -88,7 +89,9 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         name: name.trim(),
         age: age ? parseInt(age, 10) : null,
         height: calculatedHeight,
-        targetWeight: targetWeight ? parseFloat(targetWeight) : null,
+        currentWeight: currentWeight ? parseFloat(currentWeight) : null,
+        // Retain key placeholder backup for complete multi-screen file safety
+        targetWeight: currentWeight ? parseFloat(currentWeight) : null,
         weightUnit: currentWeightUnit,
         heightUnit: currentHeightUnit,
         updatedAt: new Date().toISOString(),
@@ -205,13 +208,13 @@ export default function SettingsScreen({ theme, toggleTheme, appSettings }) {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={[styles.label, { color: activeTheme.textMuted }]}>Target Goal Weight ({currentWeightUnit})</Text>
+          <Text style={[styles.label, { color: activeTheme.textMuted }]}>Current Weight ({currentWeightUnit})</Text>
           <TextInput
             style={[styles.input, { backgroundColor: activeTheme.background, borderColor: activeTheme.border, color: activeTheme.text }]}
-            value={targetWeight}
-            onChangeText={setTargetWeight}
+            value={currentWeight}
+            onChangeText={setCurrentWeight}
             keyboardType="numeric"
-            placeholder={`Target in ${currentWeightUnit}`}
+            placeholder={`Current weight in ${currentWeightUnit}`}
             placeholderTextColor={placeholderColor}
           />
         </View>
